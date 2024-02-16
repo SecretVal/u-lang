@@ -1,17 +1,15 @@
 mod ast;
-use std::{env, fs};
+use std::{env, fs, process};
 
-use ast::{
-    lexer::Lexer,
-    parser::{self, Parser},
-};
-
+use ast::lexer::Lexer;
 fn main() {
-    let mut lexer = Lexer::new("");
-    let token = lexer.next_token();
-    println!("{token:?}");
-    let token = lexer.next_token();
-    println!("{token:?}");
-    let token = lexer.next_token();
-    println!("{token:?}");
+    let args: Vec<String> = env::args().collect();
+    if args.clone().len() < 1 {
+        process::exit(1);
+    }
+    let file = fs::read_to_string(args[1].clone()).unwrap();
+    let mut lexer = Lexer::new(&file);
+    while let Some(token) = lexer.next_token() {
+        println!("{token:?}");
+    }
 }

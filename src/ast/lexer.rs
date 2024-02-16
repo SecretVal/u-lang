@@ -48,6 +48,9 @@ impl From<i64> for TokenKind {
 
 impl From<String> for TokenKind {
     fn from(value: String) -> Self {
+        if value.parse::<i64>().is_ok() {
+            return Self::from(value.parse::<i64>().unwrap());
+        }
         match value.to_ascii_lowercase().as_str() {
             "+" => Self::Plus,
             "-" => Self::Minus,
@@ -73,52 +76,30 @@ impl<'a> Lexer<'a> {
         Self { input, pos: 0 }
     }
     pub fn next_token(&mut self) -> Option<Token> {
-        let c = self.current_char();
-        let mut kind = TokenKind::Bad;
-        return c.map(|c| {
-            let start = self.pos;
-            if c.is_numeric() {
-                let num = self.consume_number();
-                kind = TokenKind::Number(num);
-            } else {
-                let str = self.consume();
-                kind = TokenKind::String(str.unwrap().to_string());
+        let ch = self.current_string();
+        if ch.is_some() {
+            if self.inut_as_vec().len() <= self.pos {
+                return None;
             }
-            if c.is_whitespace() {
-                kind = TokenKind::Whitespace;
-            }
-            let end = self.pos;
-            let content = self.input[start..end].to_string();
-            let span = TextSpan::new(start, end, content);
-            return Token::new(kind, span);
-        });
-    }
-
-    fn current_char(&self) -> Option<char> {
-        self.input.chars().nth(self.pos)
-    }
-
-    fn consume_number(&mut self) -> i64 {
-        let mut number: i64 = 0;
-        while let Some(c) = self.current_char() {
-            println!("c -> {c}");
-            if c.is_digit(10) {
-                self.consume().unwrap();
-                number = number * 10 + c.to_digit(10).unwrap() as i64;
-            } else {
-                break;
-            }
-        }
-        number
-    }
-
-    fn consume(&mut self) -> Option<char> {
-        if self.pos >= self.input.len() {
+            let token = Some(Token::new(
+                TokenKind::from(ch.clone().unwrap()),
+                TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
+            ));
+            self.pos += 1;
+            return token;
+        } else {
             return None;
         }
-        let c = self.current_char();
-        self.pos += 1;
-
-        c
+    }
+    fn current_string(&self) -> Option<String> {
+        let v = self.inut_as_vec();
+        if v.len() <= self.pos {
+            return None;
+        } else {
+            return Some(v[self.pos].to_string());
+        }
+    }
+    fn inut_as_vec(&self) -> Vec<&'a str> {
+        self.input.split_whitespace().collect::<Vec<_>>()
     }
 }
