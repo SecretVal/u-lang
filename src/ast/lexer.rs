@@ -7,6 +7,8 @@ pub enum TokenKind {
 
     Plus,
     Minus,
+    Times,
+    Divide,
 
     Let,
 
@@ -54,6 +56,8 @@ impl From<String> for TokenKind {
         match value.to_ascii_lowercase().as_str() {
             "+" => Self::Plus,
             "-" => Self::Minus,
+            "*" => Self::Times,
+            "/" => Self::Divide,
             "let" => Self::Let,
             _ => Self::String(value),
         }
