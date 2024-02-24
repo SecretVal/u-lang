@@ -26,61 +26,32 @@ impl Parser {
             statements: Vec::new(),
         }
     }
-    /* pub fn parse_statement(&mut self) -> Option<Statement> {
-        match self.parse_expression()?.kind {
-            ExpressionKind::StringExpression(_) => {}
-            ExpressionKind::NumberExpression(_) => {}
-            ExpressionKind::BinaryExpression(bexpr) => match bexpr {
-                BinaryExpression::Plus => {
-                    self.pos -= 1;
-                    let expr = self.parse_expression();
-                    let num1 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos += 2;
-                    let expr = self.parse_expression();
-                    let num2 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos -= 1;
-                }
-                BinaryExpression::Minus => {
-                    self.pos -= 1;
-                    let expr = self.parse_expression();
-                    let num1 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos += 2;
-                    let expr = self.parse_expression();
-                    let num2 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos -= 1;
-                }
-                BinaryExpression::Times => {
-                    self.pos -= 1;
-                    let expr = self.parse_expression();
-                    let num1 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos += 2;
-                    let expr = self.parse_expression();
-                    let num2 = match expr?.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.pos -= 1;
-                }
+    pub fn parse_statement(&mut self) -> Option<Statement> {
+        let expr = self.parse_expression();
+        if expr.is_none() {
+            return None;
+        }
+        let statement: Statement = match expr?.kind {
+            ExpressionKind::StringExpression(str) => Statement {
+                kind: StatementKind::Expression(Expression {
+                    kind: ExpressionKind::StringExpression(str),
+                }),
+            },
+            ExpressionKind::NumberExpression(num) => Statement {
+                kind: StatementKind::Expression(Expression {
+                    kind: ExpressionKind::NumberExpression(num),
+                }),
+            },
+            ExpressionKind::BinaryExpression(bexpr) => match bexpr.kind {
+                BinaryExpressionKind::Plus => todo!(),
+                BinaryExpressionKind::Minus => todo!(),
+                BinaryExpressionKind::Times => todo!(),
             },
         };
         self.pos += 1;
-        None
-    } */
+        self.statements.push(statement.clone());
+        Some(statement)
+    }
     pub fn parse_expression(&mut self) -> Option<Expression> {
         if self.tokens.len() <= self.pos {
             return None;
@@ -109,7 +80,6 @@ impl Parser {
             },
             _ => todo!(),
         };
-        self.pos += 1;
         Some(expr)
     }
 }

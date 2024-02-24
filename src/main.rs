@@ -12,7 +12,7 @@ fn main() {
     }
     let file = fs::read_to_string(args[1].clone()).unwrap();
     let mut parser = Parser::from_input(file);
-    while let Some(expr) = parser.parse_expression() {
+    while let Some(expr) = parser.parse_statement() {
         println!("{expr:?}");
     }
 }
