@@ -12,7 +12,34 @@ fn main() {
     }
     let file = fs::read_to_string(args[1].clone()).unwrap();
     let mut parser = Parser::from_input(file);
-    while let Some(expr) = parser.parse_statement() {
-        println!("{expr:?}");
+    while let Some(stmt) = parser.parse_statement() {
+        match stmt.kind {
+            ast::StatementKind::Expression(expr) => match expr.kind {
+                ast::ExpressionKind::StringExpression(_) => {}
+                ast::ExpressionKind::NumberExpression(_) => {}
+                ast::ExpressionKind::BinaryExpression(b) => match b.kind {
+                    ast::BinaryExpressionKind::Plus(n1, n2) => {
+                        println!("Plus:");
+                        println!("      {n1}");
+                        println!("      {n2}");
+                    }
+                    ast::BinaryExpressionKind::Minus(n1, n2) => {
+                        println!("Minus:");
+                        println!("      {n1}");
+                        println!("      {n2}");
+                    }
+                    ast::BinaryExpressionKind::Times(n1, n2) => {
+                        println!("Times:");
+                        println!("      {n1}");
+                        println!("      {n2}");
+                    }
+                    ast::BinaryExpressionKind::Divide(n1, n2) => {
+                        println!("Divide:");
+                        println!("      {n1}");
+                        println!("      {n2}");
+                    }
+                },
+            },
+        }
     }
 }

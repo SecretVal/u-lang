@@ -4,7 +4,7 @@ pub mod parser;
 
 #[derive(Debug, Clone)]
 pub struct Statement {
-    kind: StatementKind,
+    pub(crate) kind: StatementKind,
 }
 #[derive(Debug, Clone)]
 pub enum StatementKind {
@@ -12,7 +12,7 @@ pub enum StatementKind {
 }
 #[derive(Debug, Clone)]
 pub struct Expression {
-    kind: ExpressionKind,
+    pub(crate) kind: ExpressionKind,
 }
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
@@ -23,11 +23,12 @@ pub enum ExpressionKind {
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpression {
-    kind: BinaryExpressionKind,
+    pub(crate) kind: BinaryExpressionKind,
 }
 #[derive(Debug, Clone)]
 pub enum BinaryExpressionKind {
-    Plus,
-    Minus,
-    Times,
+    Plus(i64, i64),
+    Minus(i64, i64),
+    Times(i64, i64),
+    Divide(i64, i64),
 }

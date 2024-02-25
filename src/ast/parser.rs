@@ -4,7 +4,7 @@ use super::{
     BinaryExpression, BinaryExpressionKind, Expression, ExpressionKind, Statement, StatementKind,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parser {
     tokens: Vec<Token>,
     statements: Vec<Statement>,
@@ -27,59 +27,98 @@ impl Parser {
         }
     }
     pub fn parse_statement(&mut self) -> Option<Statement> {
-        let expr = self.parse_expression();
-        if expr.is_none() {
+        if self.tokens.len() <= self.pos {
             return None;
         }
-        let statement: Statement = match expr?.kind {
-            ExpressionKind::StringExpression(str) => Statement {
+        let expr = &self.tokens[self.pos];
+        let statement: Statement = match &expr.kind {
+            TokenKind::Number(num) => Statement {
                 kind: StatementKind::Expression(Expression {
-                    kind: ExpressionKind::StringExpression(str),
+                    kind: ExpressionKind::NumberExpression(*num),
                 }),
             },
-            ExpressionKind::NumberExpression(num) => Statement {
+            TokenKind::String(str) => Statement {
                 kind: StatementKind::Expression(Expression {
-                    kind: ExpressionKind::NumberExpression(num),
+                    kind: ExpressionKind::StringExpression(str.to_string()),
                 }),
             },
-            ExpressionKind::BinaryExpression(bexpr) => match bexpr.kind {
-                BinaryExpressionKind::Plus => todo!(),
-                BinaryExpressionKind::Minus => todo!(),
-                BinaryExpressionKind::Times => todo!(),
-            },
+            TokenKind::Plus => {
+                let statement1 = &self.statements[self.pos - 1];
+                let mut s = self.clone();
+                s.pos += 1;
+                s.parse_statement();
+                let statement2 = &s.statements[s.pos - 2];
+                let num1 = self.get_int_by_statement(statement1.clone());
+                let num2 = self.get_int_by_statement(statement2.clone());
+                Statement {
+                    kind: StatementKind::Expression(Expression {
+                        kind: ExpressionKind::BinaryExpression(BinaryExpression {
+                            kind: BinaryExpressionKind::Plus(num1, num2),
+                        }),
+                    }),
+                }
+            }
+            TokenKind::Minus => {
+                let statement1 = &self.statements[self.pos - 1];
+                let mut s = self.clone();
+                s.pos += 1;
+                s.parse_statement();
+                let statement2 = &s.statements[s.pos - 2];
+                let num1 = self.get_int_by_statement(statement1.clone());
+                let num2 = self.get_int_by_statement(statement2.clone());
+                Statement {
+                    kind: StatementKind::Expression(Expression {
+                        kind: ExpressionKind::BinaryExpression(BinaryExpression {
+                            kind: BinaryExpressionKind::Minus(num1, num2),
+                        }),
+                    }),
+                }
+            }
+            TokenKind::Times => {
+                let statement1 = &self.statements[self.pos - 1];
+                let mut s = self.clone();
+                s.pos += 1;
+                s.parse_statement();
+                let statement2 = &s.statements[s.pos - 2];
+                let num1 = self.get_int_by_statement(statement1.clone());
+                let num2 = self.get_int_by_statement(statement2.clone());
+                Statement {
+                    kind: StatementKind::Expression(Expression {
+                        kind: ExpressionKind::BinaryExpression(BinaryExpression {
+                            kind: BinaryExpressionKind::Times(num1, num2),
+                        }),
+                    }),
+                }
+            }
+            TokenKind::Divide => {
+                let statement1 = &self.statements[self.pos - 1];
+                let mut s = self.clone();
+                s.pos += 1;
+                s.parse_statement();
+                let statement2 = &s.statements[s.pos - 2];
+                let num1 = self.get_int_by_statement(statement1.clone());
+                let num2 = self.get_int_by_statement(statement2.clone());
+                Statement {
+                    kind: StatementKind::Expression(Expression {
+                        kind: ExpressionKind::BinaryExpression(BinaryExpression {
+                            kind: BinaryExpressionKind::Divide(num1, num2),
+                        }),
+                    }),
+                }
+            }
+            _ => todo!(),
         };
         self.pos += 1;
         self.statements.push(statement.clone());
         Some(statement)
     }
-    pub fn parse_expression(&mut self) -> Option<Expression> {
-        if self.tokens.len() <= self.pos {
-            return None;
+    fn get_int_by_statement(&self, s: Statement) -> i64 {
+        let kind = &s.kind;
+        match kind {
+            StatementKind::Expression(expr) => match expr.kind {
+                ExpressionKind::NumberExpression(num) => num,
+                _ => 0,
+            },
         }
-        let expr: Expression = match &self.tokens[self.pos].kind {
-            TokenKind::Number(num) => Expression {
-                kind: ExpressionKind::NumberExpression(*num),
-            },
-            TokenKind::String(str) => Expression {
-                kind: ExpressionKind::StringExpression(str.to_string()),
-            },
-            TokenKind::Plus => Expression {
-                kind: ExpressionKind::BinaryExpression(BinaryExpression {
-                    kind: BinaryExpressionKind::Plus,
-                }),
-            },
-            TokenKind::Minus => Expression {
-                kind: ExpressionKind::BinaryExpression(BinaryExpression {
-                    kind: BinaryExpressionKind::Minus,
-                }),
-            },
-            TokenKind::Times => Expression {
-                kind: ExpressionKind::BinaryExpression(BinaryExpression {
-                    kind: BinaryExpressionKind::Plus,
-                }),
-            },
-            _ => todo!(),
-        };
-        Some(expr)
     }
 }
