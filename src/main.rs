@@ -5,7 +5,7 @@ use std::{
     process,
 };
 
-use ast::parser::Parser;
+use ast::{parser::Parser, Statement};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -30,38 +30,7 @@ fn main() {
                     _ => {
                         let mut parser = Parser::from_input(input);
                         while let Some(stmt) = parser.parse_statement() {
-                            match stmt.kind {
-                                ast::StatementKind::Expression(expr) => match expr.kind {
-                                    ast::ExpressionKind::StringExpression(str) => {
-                                        println!("String: {str}");
-                                    }
-                                    ast::ExpressionKind::NumberExpression(num) => {
-                                        println!("Number: {num}");
-                                    }
-                                    ast::ExpressionKind::BinaryExpression(b) => match b.kind {
-                                        ast::BinaryExpressionKind::Plus(n1, n2) => {
-                                            println!("Plus:");
-                                            println!("      {n1}");
-                                            println!("      {n2}");
-                                        }
-                                        ast::BinaryExpressionKind::Minus(n1, n2) => {
-                                            println!("Minus:");
-                                            println!("      {n1}");
-                                            println!("      {n2}");
-                                        }
-                                        ast::BinaryExpressionKind::Times(n1, n2) => {
-                                            println!("Times:");
-                                            println!("      {n1}");
-                                            println!("      {n2}");
-                                        }
-                                        ast::BinaryExpressionKind::Divide(n1, n2) => {
-                                            println!("Divide:");
-                                            println!("      {n1}");
-                                            println!("      {n2}");
-                                        }
-                                    },
-                                },
-                            }
+                            print_statement(stmt);
                         }
                     }
                 }
@@ -71,35 +40,42 @@ fn main() {
             let file = fs::read_to_string(args[1].clone()).unwrap();
             let mut parser = Parser::from_input(file);
             while let Some(stmt) = parser.parse_statement() {
-                match stmt.kind {
-                    ast::StatementKind::Expression(expr) => match expr.kind {
-                        ast::ExpressionKind::StringExpression(_) => {}
-                        ast::ExpressionKind::NumberExpression(_) => {}
-                        ast::ExpressionKind::BinaryExpression(b) => match b.kind {
-                            ast::BinaryExpressionKind::Plus(n1, n2) => {
-                                println!("Plus:");
-                                println!("      {n1}");
-                                println!("      {n2}");
-                            }
-                            ast::BinaryExpressionKind::Minus(n1, n2) => {
-                                println!("Minus:");
-                                println!("      {n1}");
-                                println!("      {n2}");
-                            }
-                            ast::BinaryExpressionKind::Times(n1, n2) => {
-                                println!("Times:");
-                                println!("      {n1}");
-                                println!("      {n2}");
-                            }
-                            ast::BinaryExpressionKind::Divide(n1, n2) => {
-                                println!("Divide:");
-                                println!("      {n1}");
-                                println!("      {n2}");
-                            }
-                        },
-                    },
-                }
+                print_statement(stmt);
             }
         }
+    }
+}
+fn print_statement(s: Statement) {
+    match s.kind {
+        ast::StatementKind::Expression(expr) => match expr.kind {
+            ast::ExpressionKind::StringExpression(str) => {
+                println!("String: {str}");
+            }
+            ast::ExpressionKind::NumberExpression(num) => {
+                println!("Number: {num}");
+            }
+            ast::ExpressionKind::BinaryExpression(b) => match b.kind {
+                ast::BinaryExpressionKind::Plus(n1, n2) => {
+                    println!("Plus:");
+                    println!("      {n1}");
+                    println!("      {n2}");
+                }
+                ast::BinaryExpressionKind::Minus(n1, n2) => {
+                    println!("Minus:");
+                    println!("      {n1}");
+                    println!("      {n2}");
+                }
+                ast::BinaryExpressionKind::Times(n1, n2) => {
+                    println!("Times:");
+                    println!("      {n1}");
+                    println!("      {n2}");
+                }
+                ast::BinaryExpressionKind::Divide(n1, n2) => {
+                    println!("Divide:");
+                    println!("      {n1}");
+                    println!("      {n2}");
+                }
+            },
+        },
     }
 }
