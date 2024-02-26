@@ -90,17 +90,17 @@ impl<'a> Lexer<'a> {
                 TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
             ));
             self.pos += 1;
-            return token;
+            token
         } else {
-            return None;
+            None
         }
     }
     fn current_string(&self) -> Option<String> {
         let v = self.inut_as_vec();
         if v.len() <= self.pos {
-            return None;
+            None
         } else {
-            return Some(v[self.pos].to_string());
+            Some(v[self.pos].to_string())
         }
     }
     fn inut_as_vec(&self) -> Vec<&'a str> {
