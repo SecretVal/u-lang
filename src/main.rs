@@ -42,6 +42,7 @@ fn main() {
             while let Some(stmt) = parser.parse_statement() {
                 print_statement(stmt);
             }
+            println!("{:?}", parser.statements);
         }
     }
 }

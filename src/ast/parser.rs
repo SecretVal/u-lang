@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use super::{
     lexer::{Lexer, Token, TokenKind},
     BinaryExpression, BinaryExpressionKind, Expression, ExpressionKind, Statement, StatementKind,
@@ -6,9 +7,9 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct Parser {
-    tokens: Vec<Token>,
-    statements: Vec<Statement>,
-    pos: usize,
+    pub(crate) tokens: Vec<Token>,
+    pub(crate) statements: Vec<Statement>,
+    pub(crate) pos: usize,
 }
 impl Parser {
     pub fn from_input(input: String) -> Self {
@@ -17,7 +18,13 @@ impl Parser {
         while let Some(token) = lexer.next_token() {
             tokens.push(token);
         }
-        Self::new(tokens)
+        Self::new(
+            tokens
+                .iter()
+                .filter(|x| x.kind != TokenKind::Whitespace)
+                .map(|token| token.clone())
+                .collect(),
+        )
     }
     pub fn new(tokens: Vec<Token>) -> Self {
         Self {
@@ -37,19 +44,22 @@ impl Parser {
                     kind: ExpressionKind::NumberExpression(*num),
                 }),
             },
-            TokenKind::String(str) => Statement {
-                kind: StatementKind::Expression(Expression {
-                    kind: ExpressionKind::StringExpression(str.to_string()),
-                }),
-            },
             TokenKind::Plus => {
-                let statement1 = &self.statements[self.pos - 1];
-                let mut s = self.clone();
-                s.pos += 1;
-                s.parse_statement();
-                let statement2 = &s.statements[s.pos - 2];
-                let num1 = self.get_int_by_statement(statement1.clone());
-                let num2 = self.get_int_by_statement(statement2.clone());
+                let s = self.clone();
+                let s1 = &s.statements[self.pos - 1];
+                self.pos += 1;
+                let s2 = match self.parse_statement() {
+                    Some(s) => s,
+                    None => return None,
+                };
+                let num1 = match self.get_int_by_statement(s1.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
+                let num2 = match self.get_int_by_statement(s2.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
                 Statement {
                     kind: StatementKind::Expression(Expression {
                         kind: ExpressionKind::BinaryExpression(BinaryExpression {
@@ -59,13 +69,21 @@ impl Parser {
                 }
             }
             TokenKind::Minus => {
-                let statement1 = &self.statements[self.pos - 1];
-                let mut s = self.clone();
-                s.pos += 1;
-                s.parse_statement();
-                let statement2 = &s.statements[s.pos - 2];
-                let num1 = self.get_int_by_statement(statement1.clone());
-                let num2 = self.get_int_by_statement(statement2.clone());
+                let s = self.clone();
+                let s1 = &s.statements[self.pos - 1];
+                self.pos += 1;
+                let s2 = match self.parse_statement() {
+                    Some(s) => s,
+                    None => return None,
+                };
+                let num1 = match self.get_int_by_statement(s1.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
+                let num2 = match self.get_int_by_statement(s2.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
                 Statement {
                     kind: StatementKind::Expression(Expression {
                         kind: ExpressionKind::BinaryExpression(BinaryExpression {
@@ -75,13 +93,21 @@ impl Parser {
                 }
             }
             TokenKind::Times => {
-                let statement1 = &self.statements[self.pos - 1];
-                let mut s = self.clone();
-                s.pos += 1;
-                s.parse_statement();
-                let statement2 = &s.statements[s.pos - 2];
-                let num1 = self.get_int_by_statement(statement1.clone());
-                let num2 = self.get_int_by_statement(statement2.clone());
+                let s = self.clone();
+                let s1 = &s.statements[self.pos - 1];
+                self.pos += 1;
+                let s2 = match self.parse_statement() {
+                    Some(s) => s,
+                    None => return None,
+                };
+                let num1 = match self.get_int_by_statement(s1.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
+                let num2 = match self.get_int_by_statement(s2.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
                 Statement {
                     kind: StatementKind::Expression(Expression {
                         kind: ExpressionKind::BinaryExpression(BinaryExpression {
@@ -91,13 +117,21 @@ impl Parser {
                 }
             }
             TokenKind::Divide => {
-                let statement1 = &self.statements[self.pos - 1];
-                let mut s = self.clone();
-                s.pos += 1;
-                s.parse_statement();
-                let statement2 = &s.statements[s.pos - 2];
-                let num1 = self.get_int_by_statement(statement1.clone());
-                let num2 = self.get_int_by_statement(statement2.clone());
+                let s = self.clone();
+                let s1 = &s.statements[self.pos - 1];
+                self.pos += 1;
+                let s2 = match self.parse_statement() {
+                    Some(s) => s,
+                    None => return None,
+                };
+                let num1 = match self.get_int_by_statement(s1.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
+                let num2 = match self.get_int_by_statement(s2.clone()) {
+                    Some(num) => num,
+                    None => return None,
+                };
                 Statement {
                     kind: StatementKind::Expression(Expression {
                         kind: ExpressionKind::BinaryExpression(BinaryExpression {
@@ -106,18 +140,19 @@ impl Parser {
                     }),
                 }
             }
+            TokenKind::Bad => return None,
             _ => todo!(),
         };
         self.pos += 1;
         self.statements.push(statement.clone());
         Some(statement)
     }
-    fn get_int_by_statement(&self, s: Statement) -> i64 {
+    fn get_int_by_statement(&self, s: Statement) -> Option<i64> {
         let kind = &s.kind;
         match kind {
             StatementKind::Expression(expr) => match expr.kind {
-                ExpressionKind::NumberExpression(num) => num,
-                _ => 0,
+                ExpressionKind::NumberExpression(num) => Some(num),
+                _ => None,
             },
         }
     }

@@ -1,18 +1,13 @@
 #![allow(dead_code)]
 
-use std::i64;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Number(i64),
-    String(String),
 
     Plus,
     Minus,
     Times,
     Divide,
-
-    Let,
 
     Eof,
     Bad,
@@ -60,8 +55,7 @@ impl From<String> for TokenKind {
             "-" => Self::Minus,
             "*" => Self::Times,
             "/" => Self::Divide,
-            "let" => Self::Let,
-            _ => Self::String(value),
+            _ => Self::Bad,
         }
     }
 }
@@ -82,30 +76,76 @@ impl<'a> Lexer<'a> {
         Self { input, pos: 0 }
     }
     pub fn next_token(&mut self) -> Option<Token> {
-        let ch = self.current_string();
-        if ch.is_some() {
-            if self.inut_as_vec().len() <= self.pos {
-                return None;
+        let c = &self.current_char();
+        if c.is_none() {
+            return None;
+        }
+        let start = self.pos;
+        let mut kind = TokenKind::Bad;
+        c.map(|c| {
+            if c.is_digit(10) {
+                let num = self.consume_number();
+                kind = TokenKind::Number(num.expect("lexing number"));
+            } else if c.is_whitespace() {
+                self.consume();
+                kind = TokenKind::Whitespace;
+            // TODO: Implement this
+            // } else if Self::is_identifier_start(c) {
+            //     kind = TokenKind::Bad;
+            //     kind = match self.consume_identifier().as_str() {}
+            } else {
+                kind = self.consume_puncutation();
             }
-            let token = Some(Token::new(
-                TokenKind::from(ch.clone().unwrap()),
-                TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
-            ));
-            self.pos += 1;
+            let end = self.pos;
+            let content = &self.input[start..end];
+            let span = TextSpan::new(start, end, content.to_string());
+            let token = Token::new(kind, span);
             token
-        } else {
-            None
+        })
+    }
+    fn consume(&mut self) -> Option<char> {
+        let c = self.current_char();
+        self.pos += 1;
+        c
+    }
+    fn consume_number(&mut self) -> Option<i64> {
+        let mut num: i64 = 0;
+        while let Some(c) = self.current_char() {
+            if c.is_digit(10) {
+                self.consume().unwrap();
+                num = num * 10 + c.to_digit(10).unwrap() as i64;
+            } else {
+                break;
+            }
+        }
+        Some(num)
+    }
+    fn consume_identifier(&mut self) -> String {
+        let mut identifier = String::new();
+        while let Some(c) = self.current_char() {
+            if Self::is_identifier_start(c) {
+                self.consume().unwrap();
+                identifier.push(c);
+            } else {
+                break;
+            }
+        }
+        identifier
+    }
+    fn current_char(&self) -> Option<char> {
+        self.input.chars().nth(self.pos)
+    }
+
+    fn consume_puncutation(&mut self) -> TokenKind {
+        match self.consume().unwrap() {
+            '+' => TokenKind::Plus,
+            '-' => TokenKind::Minus,
+            '/' => TokenKind::Divide,
+            '*' => TokenKind::Times,
+            _ => TokenKind::Bad,
         }
     }
-    fn current_string(&self) -> Option<String> {
-        let v = self.inut_as_vec();
-        if v.len() <= self.pos {
-            None
-        } else {
-            Some(v[self.pos].to_string())
-        }
-    }
-    fn inut_as_vec(&self) -> Vec<&'a str> {
-        self.input.split_whitespace().collect::<Vec<_>>()
+    fn is_identifier_start(ch: char) -> bool {
+        ch.is_alphabetic()
     }
 }
