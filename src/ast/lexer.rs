@@ -2,8 +2,6 @@
 
 use std::i64;
 
-use super::errors::LexerError;
-
 #[derive(Debug, Clone)]
 pub enum TokenKind {
     Number(i64),
@@ -83,28 +81,20 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         Self { input, pos: 0 }
     }
-    pub fn next_token(&mut self) -> Result<Option<Token>, LexerError> {
+    pub fn next_token(&mut self) -> Option<Token> {
         let ch = self.current_string();
-        let token;
         if ch.is_some() {
             if self.inut_as_vec().len() <= self.pos {
-                return Ok(None);
+                return None;
             }
-            if ch.clone().unwrap().parse::<i64>().is_ok() {
-                token = Some(Token::new(
-                    TokenKind::from(ch.clone().unwrap().parse::<i64>().unwrap()),
-                    TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
-                ));
-            } else {
-                token = Some(Token::new(
-                    TokenKind::from(ch.clone().unwrap()),
-                    TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
-                ));
-            }
+            let token = Some(Token::new(
+                TokenKind::from(ch.clone().unwrap()),
+                TextSpan::new(self.pos, self.pos + 1, ch.clone().unwrap()),
+            ));
             self.pos += 1;
-            Ok(token)
+            token
         } else {
-            Ok(None)
+            None
         }
     }
     fn current_string(&self) -> Option<String> {

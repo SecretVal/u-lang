@@ -14,7 +14,7 @@ impl Parser {
     pub fn from_input(input: String) -> Self {
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(input.as_str());
-        while let Ok(Some(token)) = lexer.next_token() {
+        while let Some(token) = lexer.next_token() {
             tokens.push(token);
         }
         Self::new(tokens)
