@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+
+use std::fmt::Display;
 pub mod lexer;
 pub mod parser;
 
@@ -9,6 +11,7 @@ pub struct Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    Eof,
 }
 #[derive(Debug, Clone)]
 pub struct Expression {
@@ -16,7 +19,6 @@ pub struct Expression {
 }
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
-    StringExpression(String),
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
 }
@@ -31,4 +33,14 @@ pub enum BinaryExpressionKind {
     Minus(i64, i64),
     Times(i64, i64),
     Divide(i64, i64),
+}
+
+// Errors
+
+#[derive(Debug)]
+pub struct ParserError;
+impl Display for ParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "There was an error while parsing")
+    }
 }

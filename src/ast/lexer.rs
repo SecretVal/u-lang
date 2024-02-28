@@ -39,33 +39,6 @@ impl Token {
     }
 }
 
-impl From<i64> for TokenKind {
-    fn from(value: i64) -> Self {
-        Self::Number(value)
-    }
-}
-
-impl From<String> for TokenKind {
-    fn from(value: String) -> Self {
-        if value.parse::<i64>().is_ok() {
-            return Self::from(value.parse::<i64>().unwrap());
-        }
-        match value.to_ascii_lowercase().as_str() {
-            "+" => Self::Plus,
-            "-" => Self::Minus,
-            "*" => Self::Times,
-            "/" => Self::Divide,
-            _ => Self::Bad,
-        }
-    }
-}
-
-impl From<&str> for TokenKind {
-    fn from(value: &str) -> Self {
-        Self::from(value.to_string())
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     input: &'a str,
@@ -99,8 +72,7 @@ impl<'a> Lexer<'a> {
             let end = self.pos;
             let content = &self.input[start..end];
             let span = TextSpan::new(start, end, content.to_string());
-            let token = Token::new(kind, span);
-            token
+            Token::new(kind, span)
         })
     }
     fn consume(&mut self) -> Option<char> {

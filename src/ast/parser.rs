@@ -2,7 +2,8 @@
 
 use super::{
     lexer::{Lexer, Token, TokenKind},
-    BinaryExpression, BinaryExpressionKind, Expression, ExpressionKind, Statement, StatementKind,
+    BinaryExpression, BinaryExpressionKind, Expression, ExpressionKind, ParserError, Statement,
+    StatementKind,
 };
 
 #[derive(Debug, Clone)]
@@ -33,9 +34,12 @@ impl Parser {
             statements: Vec::new(),
         }
     }
-    pub fn parse_statement(&mut self) -> Option<Statement> {
+
+    pub fn parse_statement(&mut self) -> Result<Statement, ParserError> {
         if self.tokens.len() <= self.pos {
-            return None;
+            return Ok(Statement {
+                kind: StatementKind::Eof,
+            });
         }
         let expr = &self.tokens[self.pos];
         let statement: Statement = match &expr.kind {
@@ -45,20 +49,20 @@ impl Parser {
                 }),
             },
             TokenKind::Plus => {
-                let s = self.clone();
-                let s1 = &s.statements[self.pos - 1];
-                self.pos += 1;
-                let s2 = match self.parse_statement() {
-                    Some(s) => s,
-                    None => return None,
+                let mut s = self.clone();
+                let s1 = &s.clone().statements[self.pos - 1];
+                s.pos += 1;
+                let s2 = match s.parse_statement() {
+                    Ok(s) => s,
+                    Err(err) => return Err(err),
                 };
-                let num1 = match self.get_int_by_statement(s1.clone()) {
+                let num1 = match s.get_int_by_statement(s1.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
-                let num2 = match self.get_int_by_statement(s2.clone()) {
+                let num2 = match s.get_int_by_statement(s2.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
                 Statement {
                     kind: StatementKind::Expression(Expression {
@@ -69,20 +73,20 @@ impl Parser {
                 }
             }
             TokenKind::Minus => {
-                let s = self.clone();
-                let s1 = &s.statements[self.pos - 1];
-                self.pos += 1;
-                let s2 = match self.parse_statement() {
-                    Some(s) => s,
-                    None => return None,
+                let mut s = self.clone();
+                let s1 = &s.clone().statements[self.pos - 1];
+                s.pos += 1;
+                let s2 = match s.parse_statement() {
+                    Ok(s) => s,
+                    Err(err) => return Err(err),
                 };
-                let num1 = match self.get_int_by_statement(s1.clone()) {
+                let num1 = match s.get_int_by_statement(s1.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
-                let num2 = match self.get_int_by_statement(s2.clone()) {
+                let num2 = match s.get_int_by_statement(s2.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
                 Statement {
                     kind: StatementKind::Expression(Expression {
@@ -93,20 +97,20 @@ impl Parser {
                 }
             }
             TokenKind::Times => {
-                let s = self.clone();
-                let s1 = &s.statements[self.pos - 1];
-                self.pos += 1;
-                let s2 = match self.parse_statement() {
-                    Some(s) => s,
-                    None => return None,
+                let mut s = self.clone();
+                let s1 = &s.clone().statements[self.pos - 1];
+                s.pos += 1;
+                let s2 = match s.parse_statement() {
+                    Ok(s) => s,
+                    Err(err) => return Err(err),
                 };
-                let num1 = match self.get_int_by_statement(s1.clone()) {
+                let num1 = match s.get_int_by_statement(s1.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
-                let num2 = match self.get_int_by_statement(s2.clone()) {
+                let num2 = match s.get_int_by_statement(s2.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
                 Statement {
                     kind: StatementKind::Expression(Expression {
@@ -117,20 +121,20 @@ impl Parser {
                 }
             }
             TokenKind::Divide => {
-                let s = self.clone();
-                let s1 = &s.statements[self.pos - 1];
-                self.pos += 1;
-                let s2 = match self.parse_statement() {
-                    Some(s) => s,
-                    None => return None,
+                let mut s = self.clone();
+                let s1 = &s.clone().statements[self.pos - 1];
+                s.pos += 1;
+                let s2 = match s.parse_statement() {
+                    Ok(s) => s,
+                    Err(err) => return Err(err),
                 };
-                let num1 = match self.get_int_by_statement(s1.clone()) {
+                let num1 = match s.get_int_by_statement(s1.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
-                let num2 = match self.get_int_by_statement(s2.clone()) {
+                let num2 = match s.get_int_by_statement(s2.clone()) {
                     Some(num) => num,
-                    None => return None,
+                    None => return Err(ParserError),
                 };
                 Statement {
                     kind: StatementKind::Expression(Expression {
@@ -140,12 +144,12 @@ impl Parser {
                     }),
                 }
             }
-            TokenKind::Bad => return None,
+            TokenKind::Bad => return Err(ParserError),
             _ => todo!(),
         };
         self.pos += 1;
         self.statements.push(statement.clone());
-        Some(statement)
+        Ok(statement)
     }
     fn get_int_by_statement(&self, s: Statement) -> Option<i64> {
         let kind = &s.kind;
@@ -154,6 +158,7 @@ impl Parser {
                 ExpressionKind::NumberExpression(num) => Some(num),
                 _ => None,
             },
+            StatementKind::Eof => None,
         }
     }
 }

@@ -29,8 +29,17 @@ fn main() {
                     "exit" => exit = true,
                     _ => {
                         let mut parser = Parser::from_input(input);
-                        while let Some(stmt) = parser.parse_statement() {
-                            print_statement(stmt);
+                        loop {
+                            let stmt = match parser.parse_statement() {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    eprintln!("{e}");
+                                    break;
+                                }
+                            };
+                            if print_statement(stmt).is_none() {
+                                break;
+                            }
                         }
                     }
                 }
@@ -39,19 +48,24 @@ fn main() {
         _ => {
             let file = fs::read_to_string(args[1].clone()).unwrap();
             let mut parser = Parser::from_input(file);
-            while let Some(stmt) = parser.parse_statement() {
-                print_statement(stmt);
+            loop {
+                let stmt = match parser.parse_statement() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        break;
+                    }
+                };
+                if print_statement(stmt).is_none() {
+                    break;
+                }
             }
-            println!("{:?}", parser.statements);
         }
     }
 }
-fn print_statement(s: Statement) {
+fn print_statement(s: Statement) -> Option<()> {
     match s.kind {
         ast::StatementKind::Expression(expr) => match expr.kind {
-            ast::ExpressionKind::StringExpression(str) => {
-                println!("String: {str}");
-            }
             ast::ExpressionKind::NumberExpression(num) => {
                 println!("Number: {num}");
             }
@@ -78,5 +92,7 @@ fn print_statement(s: Statement) {
                 }
             },
         },
-    }
+        ast::StatementKind::Eof => return None,
+    };
+    Some(())
 }
