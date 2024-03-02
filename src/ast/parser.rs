@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use super::{
     lexer::{Lexer, Token, TokenKind},
     BinaryExpression, BinaryExpressionKind, Expression, ExpressionKind, ParserError, Statement,
@@ -10,7 +8,10 @@ use super::{
 pub struct Parser {
     pub(crate) tokens: Vec<Token>,
     pub(crate) statements: Vec<Statement>,
+    pub(crate) values: Vec<Statement>,
     pub(crate) pos: usize,
+    pub(crate) values_pos: usize,
+    pub(crate) statments_pos: usize,
 }
 impl Parser {
     pub fn from_input(input: String) -> Self {
@@ -31,7 +32,10 @@ impl Parser {
         Self {
             tokens,
             pos: 0,
+            values_pos: 0,
+            statments_pos: 0,
             statements: Vec::new(),
+            values: Vec::new(),
         }
     }
 
@@ -50,7 +54,7 @@ impl Parser {
             },
             TokenKind::Plus => {
                 let mut s = self.clone();
-                let s1 = &s.clone().statements[self.pos - 1];
+                let s1 = &s.clone().values[self.values_pos - 1];
                 s.pos += 1;
                 let s2 = match s.parse_statement() {
                     Ok(s) => s,
@@ -74,7 +78,7 @@ impl Parser {
             }
             TokenKind::Minus => {
                 let mut s = self.clone();
-                let s1 = &s.clone().statements[self.pos - 1];
+                let s1 = &s.clone().values[self.values_pos - 1];
                 s.pos += 1;
                 let s2 = match s.parse_statement() {
                     Ok(s) => s,
@@ -98,7 +102,7 @@ impl Parser {
             }
             TokenKind::Times => {
                 let mut s = self.clone();
-                let s1 = &s.clone().statements[self.pos - 1];
+                let s1 = &s.clone().values[self.values_pos - 1];
                 s.pos += 1;
                 let s2 = match s.parse_statement() {
                     Ok(s) => s,
@@ -122,8 +126,7 @@ impl Parser {
             }
             TokenKind::Divide => {
                 let mut s = self.clone();
-                let s1 = &s.clone().statements[self.pos - 1];
-                s.pos += 1;
+                let s1 = &s.clone().values[self.values_pos - 1];
                 let s2 = match s.parse_statement() {
                     Ok(s) => s,
                     Err(err) => return Err(err),
@@ -145,11 +148,18 @@ impl Parser {
                 }
             }
             TokenKind::Bad => return Err(ParserError),
-            _ => todo!(),
+            _ => return Err(ParserError),
         };
         self.pos += 1;
-        self.statements.push(statement.clone());
-        Ok(statement)
+        if self.get_int_by_statement(statement.clone()).is_some() {
+            self.values.push(statement.clone());
+            self.values_pos += 1;
+            Ok(statement)
+        } else {
+            self.statements.push(statement.clone());
+            self.statments_pos += 1;
+            Ok(statement)
+        }
     }
     fn get_int_by_statement(&self, s: Statement) -> Option<i64> {
         let kind = &s.kind;

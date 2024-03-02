@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Number(i64),
