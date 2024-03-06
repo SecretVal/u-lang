@@ -11,7 +11,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.clone().len() < 2 {
         println!("Usage: ");
-        println!("  <file_name>             parse the file");
+        println!("  <file_name>             Parse the file with the name <file_name>");
         println!("  shell                   Get dropped into an interactive shell.");
         process::exit(1);
     }
@@ -26,7 +26,12 @@ fn main() {
                 let mut input = String::new();
                 let _ = handler.read_line(&mut input);
                 match input.as_str().trim() {
-                    "exit" => exit = true,
+                    "#exit" => exit = true,
+                    "#clear" => {
+                        let _ = stdout
+                            .write(format!("{esc}[2J{esc}[1;1H", esc = 27 as char).as_bytes());
+                        let _ = stdout.flush();
+                    }
                     _ => {
                         let mut parser = Parser::from_input(input);
                         loop {
