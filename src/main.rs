@@ -19,8 +19,9 @@ fn main() {
         "shell" => {
             let mut stdout = stdout();
             let mut exit = false;
+            let mut prompt = "✔ ->";
             while !exit {
-                let _ = stdout.write(b"->");
+                let _ = stdout.write(prompt.as_bytes());
                 let _ = stdout.flush();
                 let mut handler = stdin().lock();
                 let mut input = String::new();
@@ -36,9 +37,13 @@ fn main() {
                         let mut parser = Parser::from_input(input);
                         loop {
                             let stmt = match parser.parse_statement() {
-                                Ok(s) => s,
+                                Ok(s) => {
+                                    prompt = "✔ ->";
+                                    s
+                                }
                                 Err(e) => {
                                     eprintln!("{e}");
+                                    prompt = "✖ ->";
                                     break;
                                 }
                             };
