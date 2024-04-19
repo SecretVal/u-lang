@@ -98,7 +98,7 @@ impl Parser {
         let token = self.current();
         return match token.kind {
             TokenKind::Identifier => {
-                todo!("not implemented yet")
+                todo!("Identifiers are coming soon")
             }
             TokenKind::Number(num) => {
                 if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus {
@@ -123,7 +123,14 @@ impl Parser {
                 );
                 std::process::exit(1);
             }
-            TokenKind::Bad => todo!("bad token"),
+            TokenKind::Bad => {
+                eprintln!(
+                    "Error: {}:{}: Bad token",
+                    self.file,
+                    self.current().loc(),
+                );
+                std::process::exit(1);
+            },
             TokenKind::Eof => {
                 return None;
             }
