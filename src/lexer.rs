@@ -88,7 +88,9 @@ impl Lexer {
                 }
                 self.consume();
             } else if c.is_alphabetic() {
+                let col = self.col;
                 let identifier = self.consume_identifier();
+                self.col = col;
                 kind = match identifier.as_str() {
                     _ => TokenKind::Identifier,
                 }

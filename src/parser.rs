@@ -74,12 +74,16 @@ impl Parser {
                 .into_iter()
                 .filter(|t| t.kind != TokenKind::Whitespace)
                 .collect(),
-            file
+            file,
         )
     }
 
     pub fn new(tokens: Vec<Token>, file: String) -> Self {
-        Self { tokens, pos: 0, file }
+        Self {
+            tokens,
+            pos: 0,
+            file,
+        }
     }
 
     pub fn parse_statement(&mut self) -> Option<Statement> {
@@ -105,15 +109,17 @@ impl Parser {
             }
             TokenKind::Plus => {
                 eprintln!(
-                    "ERROR: You cannot start a statement with `+` at {}",
-                    self.pos
+                    "Error: {}:{}: You cannot start a statement with `+`",
+                    self.file,
+                    self.current().loc(),
                 );
                 std::process::exit(1);
             }
             TokenKind::Minus => {
                 eprintln!(
-                    "ERROR: You cannot start a statement with `+` at {}",
-                    self.pos
+                    "Error: {}:{}: You cannot start a statement with `+`",
+                    self.file,
+                    self.current().loc(),
                 );
                 std::process::exit(1);
             }
@@ -122,8 +128,12 @@ impl Parser {
                 return None;
             }
             TokenKind::Whitespace => {
-                eprintln!("ERROR: {}: Still a whitespace token in parsing", self.current().loc());
-                eprintln!("NOTICE: If you are not the developer please contact create a github issue. This should never happen.");
+                eprintln!(
+                    "Error: {}:{}: Still a whitespace token in parsing",
+                    self.file,
+                    self.current().loc()
+                );
+                eprintln!("Notice: If you are not the developer please contact create a github issue. This should never happen.");
                 std::process::exit(1)
             }
         };
@@ -134,7 +144,12 @@ impl Parser {
             TokenKind::Number(num) => num,
             _ => {
                 let current = &self.current();
-                eprintln!("ERROR: {}:{} : `{}` is not a number", self.file, current.loc(), current.span.literal);
+                eprintln!(
+                    "Error: {}:{}: `{}` is not a number",
+                    self.file,
+                    current.loc(),
+                    current.span.literal
+                );
                 std::process::exit(1);
             }
         };
@@ -144,7 +159,12 @@ impl Parser {
             TokenKind::Minus => BinaryExpressionKind::Minus,
             _ => {
                 let current = &self.current();
-                eprintln!("ERROR: {}:{} `{}` is not a known operator", self.file, current.loc(), current.span.literal);
+                eprintln!(
+                    "Error: {}:{}: `{}` is not a known operator",
+                    self.file,
+                    current.loc(),
+                    current.span.literal
+                );
                 std::process::exit(1);
             }
         };
@@ -153,7 +173,12 @@ impl Parser {
             TokenKind::Number(num) => num,
             _ => {
                 let current = &self.current();
-                eprintln!("ERROR: {}:{} : `{}` is not a number", self.file, current.loc(), current.span.literal);
+                eprintln!(
+                    "Error: {}:{}: `{}`  is not a number",
+                    self.file,
+                    current.loc(),
+                    current.span.literal
+                );
                 std::process::exit(1);
             }
         };
