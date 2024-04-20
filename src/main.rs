@@ -19,12 +19,11 @@ fn main() {
     let mut parser = Parser::from_input(&file, args[1].clone());
     let mut statements: Vec<Statement> = vec![];
     while let Some(stmt) = parser.parse_statement() {
+        //println!("{stmt:?}");
         statements.push(stmt);
     }
     let mut generator = Generator::new(statements);
-    fs::write("out.s", generator.generate()).unwrap();
-    let _ = Command::new("as").args(["out.s", "-o", "out.o"]).spawn();
-    let _ = Command::new("gcc")
-        .args(["out.o", "-o", "out", "-nostdlib", "-static"])
-        .output();
+    let stripped_assembly_path = format!("{}.asm", args[1].clone().split(".").collect::<Vec<_>>()[0]);
+    fs::write(&stripped_assembly_path, generator.generate()).unwrap();
+    let _ = Command::new("fasm").args([&stripped_assembly_path]).output();
 }

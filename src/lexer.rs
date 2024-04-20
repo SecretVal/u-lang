@@ -26,6 +26,8 @@ pub enum TokenKind {
     Bad,
     Whitespace,
     Eof,
+    Let,
+    Equals,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -67,7 +69,6 @@ impl Lexer {
                 TextSpan::new(0, 0, eof_char.to_string()),
             ));
         }
-
         if self.pos >= self.input.len() {
             return None;
         }
@@ -78,6 +79,7 @@ impl Lexer {
         return c.map(|c| {
             let start = self.pos;
             let mut kind = TokenKind::Bad;
+            let _ = kind;
             if c.is_digit(10) {
                 let num = self.consume_number();
                 kind = TokenKind::Number(num);
@@ -92,6 +94,7 @@ impl Lexer {
                 let identifier = self.consume_identifier();
                 self.col = col;
                 kind = match identifier.as_str() {
+                    "let" => TokenKind::Let,
                     _ => TokenKind::Identifier,
                 }
             } else {
@@ -135,6 +138,7 @@ impl Lexer {
         match c {
             '+' => TokenKind::Plus,
             '-' => TokenKind::Minus,
+            '=' => TokenKind::Equals,
             _ => TokenKind::Bad,
         }
     }

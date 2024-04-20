@@ -20,12 +20,39 @@ impl Statement {
             kind: StatementKind::Expression(expr),
         }
     }
+
+    pub fn declaration(decl: Declaration) -> Self {
+        match decl.kind {
+            DeclarationKind::VariableDeclaration(var_decl) => Self {
+                kind: StatementKind::Declaration(Declaration {
+                    kind: DeclarationKind::VariableDeclaration(var_decl),
+                }),
+            },
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    Declaration(Declaration),
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Declaration {
+    pub(crate) kind: DeclarationKind,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub enum DeclarationKind {
+    VariableDeclaration(VariableDeclaration),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VariableDeclaration {
+    pub(crate) name: String,
+    pub(crate) value: Expression,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
     pub(crate) kind: ExpressionKind,
@@ -42,12 +69,19 @@ impl Expression {
             kind: ExpressionKind::BinaryExpression(expr),
         }
     }
+
+    pub fn exit(value: String) -> Self {
+        Self {
+            kind: ExpressionKind::ExitExpression(ExitExpression { value }),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionKind {
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
+    ExitExpression(ExitExpression),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpression {
@@ -60,6 +94,11 @@ pub struct BinaryExpression {
 pub enum BinaryExpressionKind {
     Plus,
     Minus,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ExitExpression {
+    pub(crate) value: String,
 }
 
 impl Parser {
@@ -87,18 +126,23 @@ impl Parser {
     }
 
     pub fn parse_statement(&mut self) -> Option<Statement> {
-        let expr = self.parse_expr();
-        if expr.is_none() {
-            return None;
+        match self.current().kind {
+            TokenKind::Let => return Some(Statement::declaration(self.parse_declaration())),
+            _ => {
+                let expr = self.parse_expr();
+                if expr.is_none() {
+                    return None;
+                }
+                return Some(Statement::expression(expr.unwrap()));
+            }
         }
-        Some(Statement::expression(expr.unwrap()))
     }
 
     pub fn parse_expr(&mut self) -> Option<Expression> {
         let token = self.current();
         return match token.kind {
             TokenKind::Identifier => {
-                todo!("Identifiers are coming soon")
+                return Some(Expression::exit(self.consume().unwrap().span.literal.clone()));
             }
             TokenKind::Number(num) => {
                 if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus {
@@ -117,20 +161,16 @@ impl Parser {
             }
             TokenKind::Minus => {
                 eprintln!(
-                    "Error: {}:{}: You cannot start a statement with `+`",
+                    "Error: {}:{}: You cannot start a statement with `-`",
                     self.file,
                     self.current().loc(),
                 );
                 std::process::exit(1);
             }
             TokenKind::Bad => {
-                eprintln!(
-                    "Error: {}:{}: Bad token",
-                    self.file,
-                    self.current().loc(),
-                );
+                eprintln!("Error: {}:{}: Bad token", self.file, self.current().loc(),);
                 std::process::exit(1);
-            },
+            }
             TokenKind::Eof => {
                 return None;
             }
@@ -143,20 +183,77 @@ impl Parser {
                 eprintln!("Notice: If you are not the developer please contact create a github issue. This should never happen.");
                 std::process::exit(1)
             }
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Trying to parse this as an Expression",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
         };
     }
 
-    pub fn parse_binary_expr(&mut self) -> BinaryExpression {
-        let left = match self.clone().consume().unwrap().kind {
-            TokenKind::Number(num) => num,
+    fn parse_declaration(&mut self) -> Declaration {
+        return match self.current().kind {
+            TokenKind::Let => Declaration {
+                kind: DeclarationKind::VariableDeclaration(self.parse_var_declaration()),
+            },
+            _ => todo!(),
+        };
+    }
+
+    fn parse_var_declaration(&mut self) -> VariableDeclaration {
+        // `let`
+        self.consume().unwrap();
+        // name
+        let literal = &self.clone().current().span.literal.clone();
+        let name = match self.clone().consume().unwrap().kind {
+            TokenKind::Identifier => literal,
             _ => {
-                let current = &self.current();
+                let current = self.current();
                 eprintln!(
-                    "Error: {}:{}: `{}` is not a number",
+                    "Error: {}:{}: `{}` is not a valid variable name",
                     self.file,
                     current.loc(),
                     current.span.literal
                 );
+                std::process::exit(1);
+            }
+        };
+        // identifier
+        self.consume().unwrap();
+        // =
+        self.consume().unwrap();
+        // expression
+        let value = self.clone().parse_expr().unwrap();
+        self.parse_expr();
+        VariableDeclaration {
+            name: name.to_string(),
+            value: value.clone(),
+        }
+    }
+
+    fn parse_binary_expr(&mut self) -> BinaryExpression {
+        let left = match self.clone().consume().unwrap().kind {
+            TokenKind::Number(num) => num,
+            _ => {
+                let current = &self.current();
+                println!("{}", current.span.literal.len());
+                if current.span.literal.len() <= 1 {
+                    eprintln!(
+                        "Error: {}:{}: Please provide the first number",
+                        self.file,
+                        current.loc(),
+                    );
+                } else {
+                    eprintln!(
+                        "Error: {}:{}: `{}` is not a number",
+                        self.file,
+                        current.loc(),
+                        current.span.literal
+                    );
+                }
                 std::process::exit(1);
             }
         };
@@ -180,12 +277,20 @@ impl Parser {
             TokenKind::Number(num) => num,
             _ => {
                 let current = &self.current();
-                eprintln!(
-                    "Error: {}:{}: `{}`  is not a number",
-                    self.file,
-                    current.loc(),
-                    current.span.literal
-                );
+                if current.span.literal.len() <= 1 {
+                    eprintln!(
+                        "Error: {}:{}: Please provide a second number",
+                        self.file,
+                        current.loc(),
+                    );
+                } else {
+                    eprintln!(
+                        "Error: {}:{}: `{}` is not a number",
+                        self.file,
+                        current.loc(),
+                        current.span.literal
+                    );
+                }
                 std::process::exit(1);
             }
         };
