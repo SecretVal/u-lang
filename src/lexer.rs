@@ -86,7 +86,7 @@ impl Lexer {
             } else if c.is_whitespace() {
                 kind = TokenKind::Whitespace;
                 if c == '\n' {
-                    self.col += 1;
+                    self.row += 1;
                 }
                 self.consume();
             } else if c.is_alphabetic() {
