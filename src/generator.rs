@@ -78,6 +78,29 @@ impl Generator {
             ExpressionKind::ExitExpression(exit_expr) => {
                 self.add_to_output(format!("mov rdi, [{}]", exit_expr.value).as_str())
             }
+            ExpressionKind::CallExpression(call_expr) => {
+                for (i, arg) in call_expr.args.iter().enumerate() {
+                    let reg = match i {
+                        0 => "rax",
+                        1 => "rdi",
+                        2 => "rsi",
+                        3 => "rdx",
+                        4 => "r10",
+                        5 => "r8",
+                        6 => "r9",
+                        _ => todo!(),
+                    };
+                    let num = match arg.kind {
+                        ExpressionKind::NumberExpression(num) => num,
+                        _ => 0,
+                    };
+                    self.add_to_output(format!("mov {reg}, {num}").as_str());
+                }
+                if call_expr.name == "syscall".to_string()  {
+                    self.add_to_output("syscall");
+                }
+            }
+            _ => todo!(),
         }
     }
 

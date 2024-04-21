@@ -75,6 +75,12 @@ impl Expression {
             kind: ExpressionKind::ExitExpression(ExitExpression { value }),
         }
     }
+
+    pub fn call(expr: CallExpression) -> Self {
+        Self {
+            kind: ExpressionKind::CallExpression(expr),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -82,7 +88,9 @@ pub enum ExpressionKind {
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
     ExitExpression(ExitExpression),
+    CallExpression(CallExpression),
 }
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpression {
     pub(crate) kind: BinaryExpressionKind,
@@ -94,6 +102,11 @@ pub struct BinaryExpression {
 pub enum BinaryExpressionKind {
     Plus,
     Minus,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct CallExpression {
+    pub(crate) name: String,
+    pub(crate) args: Vec<Box<Expression>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -141,8 +154,13 @@ impl Parser {
     pub fn parse_expr(&mut self) -> Option<Expression> {
         let token = self.current();
         return match token.kind {
+            TokenKind::Syscall => {
+                return Some(Expression::call(self.parse_syscall()));
+            }
             TokenKind::Identifier => {
-                return Some(Expression::exit(self.consume().unwrap().span.literal.clone()));
+                return Some(Expression::exit(
+                    self.consume().unwrap().span.literal.clone(),
+                ));
             }
             TokenKind::Number(num) => {
                 if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus {
@@ -181,7 +199,7 @@ impl Parser {
                     self.current().loc()
                 );
                 eprintln!("Notice: If you are not the developer please contact create a github issue. This should never happen.");
-                std::process::exit(1)
+                std::process::exit(1);
             }
             _ => {
                 eprintln!(
@@ -192,6 +210,29 @@ impl Parser {
                 std::process::exit(1);
             }
         };
+    }
+
+    fn parse_syscall(&mut self) -> CallExpression {
+        // syscall
+        self.consume();
+        let mut args = vec![];
+        for i in 0..7 {
+            args.push(match self.current().kind {
+                TokenKind::Number(num) => Box::new(Expression::number(num)),
+                TokenKind::Eof => break,
+                _ => Box::new(Expression::number(0)),
+            });
+            self.consume().unwrap();
+            match self.current().kind {
+                TokenKind::Comma => self.consume().unwrap(),
+                TokenKind::Eof => break,
+                _ => break,
+            };
+        }
+        CallExpression {
+            name: "syscall".to_string(),
+            args,
+        }
     }
 
     fn parse_declaration(&mut self) -> Declaration {

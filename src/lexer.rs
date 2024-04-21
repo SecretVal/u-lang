@@ -28,6 +28,8 @@ pub enum TokenKind {
     Eof,
     Let,
     Equals,
+    Syscall,
+    Comma,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -95,6 +97,7 @@ impl Lexer {
                 self.col = col;
                 kind = match identifier.as_str() {
                     "let" => TokenKind::Let,
+                    "syscall" => TokenKind::Syscall,
                     _ => TokenKind::Identifier,
                 }
             } else {
@@ -139,6 +142,7 @@ impl Lexer {
             '+' => TokenKind::Plus,
             '-' => TokenKind::Minus,
             '=' => TokenKind::Equals,
+            ',' => TokenKind::Comma,
             _ => TokenKind::Bad,
         }
     }
