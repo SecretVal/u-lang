@@ -12,6 +12,7 @@ pub struct Generator {
     statements: Vec<Statement>,
     output: String,
     pos: usize,
+    stmt_pos: usize,
     variables: Vec<VariableDeclaration>,
 }
 
@@ -26,27 +27,36 @@ impl Generator {
             statements,
             output,
             pos: 0,
+            stmt_pos: 0,
             variables: vec![],
         }
     }
 
     pub fn generate(&mut self) -> String {
-        while let Some(_) = self.generate_next_statement() {}
-        self.add_to_output("mov rax, 60");
-        self.add_to_output("syscall");
-        self.add_to_output("segment readable writeable");
-        for var in &self.variables.clone() {
-            self.add_to_output(format!("{} dq 0", var.name).as_str());
+        let mut current = self.current();
+        self.output
+            .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+        while let Some(_) = self.generate_statement(current.unwrap(), true) {
+            current = self.current();
+            if current.is_none() {
+                self.output
+                    .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+                self.add_to_output("mov rax, 60");
+                self.add_to_output("syscall");
+                self.output.push_str("segment readable writeable\n");
+                for var in &self.variables.clone() {
+                    self.add_to_output(format!("{} dq 0", var.name).as_str());
+                }
+                break;
+            }
+            self.output
+                .push_str(format!("addr_{}:\n", self.pos).as_str())
         }
-        return self.output.clone();
+        self.output.clone()
     }
 
-    fn generate_next_statement(&mut self) -> Option<()> {
-        let statement = self.consume();
-        if statement.is_none() {
-            return None;
-        }
-        match statement?.kind {
+    fn generate_statement(&mut self, statement: Statement, consume: bool) -> Option<()> {
+        match statement.kind {
             StatementKind::Expression(expr) => self.generate_expression(expr),
             StatementKind::Declaration(decl) => match decl.kind {
                 DeclarationKind::VariableDeclaration(var_decl) => {
@@ -56,7 +66,30 @@ impl Generator {
                     self.add_to_output("xor rdi, rdi");
                 }
             },
+            StatementKind::IfStatement(if_stmt) => {
+                self.add_to_output(";; -- if --- ;;");
+                self.generate_expression(if_stmt.left);
+                self.add_to_output("mov rdx, rdi");
+                self.generate_expression(if_stmt.right);
+                self.add_to_output("cmp rdi, rdx");
+                self.add_to_output(format!("je addr_{}", self.pos + 1).as_str());
+                self.add_to_output("xor rdi, rdi");
+                self.add_to_output("xor rdx, rdx");
+                self.add_to_output(
+                    format!("jmp addr_{}", self.pos + 1 + if_stmt.stmt_count).as_str(),
+                );
+                for stmt in if_stmt.body {
+                    self.stmt_pos += 1;
+                    self.output
+                        .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+                    self.generate_statement(*stmt.clone(), false);
+                }
+            }
         };
+        if consume {
+            self.consume();
+            self.stmt_pos += 1;
+        }
         Some(())
     }
 
@@ -75,9 +108,6 @@ impl Generator {
                     self.add_to_output(format!("sub rdi, {}", bexpr.right).as_str());
                 }
             },
-            ExpressionKind::ExitExpression(exit_expr) => {
-                self.add_to_output(format!("mov rdi, [{}]", exit_expr.value).as_str())
-            }
             ExpressionKind::CallExpression(call_expr) => {
                 for (i, arg) in call_expr.args.iter().enumerate() {
                     let reg = match i {
@@ -88,7 +118,7 @@ impl Generator {
                         4 => "r10",
                         5 => "r8",
                         6 => "r9",
-                        _ => todo!(),
+                        _ => todo!("a function can only have 6 parameters"),
                     };
                     let num = match arg.kind {
                         ExpressionKind::NumberExpression(num) => num,
@@ -96,11 +126,10 @@ impl Generator {
                     };
                     self.add_to_output(format!("mov {reg}, {num}").as_str());
                 }
-                if call_expr.name == "syscall".to_string()  {
+                if call_expr.name == "syscall".to_string() {
                     self.add_to_output("syscall");
                 }
             }
-            _ => todo!(),
         }
     }
 

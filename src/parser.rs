@@ -8,7 +8,6 @@ pub struct Parser {
     pub(crate) pos: usize,
     pub(crate) file: String,
 }
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statement {
     pub(crate) kind: StatementKind,
@@ -28,6 +27,17 @@ impl Statement {
                     kind: DeclarationKind::VariableDeclaration(var_decl),
                 }),
             },
+            DeclarationKind::VariableRedeclaration(var_re_decl) => Self {
+                kind: StatementKind::Declaration(Declaration {
+                    kind: DeclarationKind::VariableDeclaration(var_re_decl),
+                }),
+            },
+        }
+    }
+
+    pub fn if_statemnt(stmt: IfStatement) -> Self {
+        Self {
+            kind: StatementKind::IfStatement(stmt),
         }
     }
 }
@@ -36,6 +46,15 @@ impl Statement {
 pub enum StatementKind {
     Expression(Expression),
     Declaration(Declaration),
+    IfStatement(IfStatement),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct IfStatement {
+    pub(crate) left: Expression,
+    pub(crate) right: Expression,
+    pub(crate) body: Vec<Box<Statement>>,
+    pub(crate) stmt_count: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -45,6 +64,7 @@ pub struct Declaration {
 #[derive(Debug, PartialEq, Clone)]
 pub enum DeclarationKind {
     VariableDeclaration(VariableDeclaration),
+    VariableRedeclaration(VariableDeclaration),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,13 +89,6 @@ impl Expression {
             kind: ExpressionKind::BinaryExpression(expr),
         }
     }
-
-    pub fn exit(value: String) -> Self {
-        Self {
-            kind: ExpressionKind::ExitExpression(ExitExpression { value }),
-        }
-    }
-
     pub fn call(expr: CallExpression) -> Self {
         Self {
             kind: ExpressionKind::CallExpression(expr),
@@ -87,7 +100,6 @@ impl Expression {
 pub enum ExpressionKind {
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
-    ExitExpression(ExitExpression),
     CallExpression(CallExpression),
 }
 
@@ -107,11 +119,6 @@ pub enum BinaryExpressionKind {
 pub struct CallExpression {
     pub(crate) name: String,
     pub(crate) args: Vec<Box<Expression>>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ExitExpression {
-    pub(crate) value: String,
 }
 
 impl Parser {
@@ -141,6 +148,8 @@ impl Parser {
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.current().kind {
             TokenKind::Let => return Some(Statement::declaration(self.parse_declaration())),
+            TokenKind::Identifier => return Some(Statement::declaration(self.parse_declaration())),
+            TokenKind::If => return Some(Statement::if_statemnt(self.parse_if_statement())),
             _ => {
                 let expr = self.parse_expr();
                 if expr.is_none() {
@@ -154,19 +163,12 @@ impl Parser {
     pub fn parse_expr(&mut self) -> Option<Expression> {
         let token = self.current();
         return match token.kind {
-            TokenKind::Syscall => {
-                return Some(Expression::call(self.parse_syscall()));
-            }
-            TokenKind::Identifier => {
-                return Some(Expression::exit(
-                    self.consume().unwrap().span.literal.clone(),
-                ));
-            }
+            TokenKind::Syscall => Some(Expression::call(self.parse_syscall())),
             TokenKind::Number(num) => {
                 if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus {
                     return Some(Expression::binary(self.parse_binary_expr()));
                 }
-                self.consume();
+                self.consume().unwrap();
                 Some(Expression::number(num))
             }
             TokenKind::Plus => {
@@ -212,11 +214,71 @@ impl Parser {
         };
     }
 
+    fn parse_if_statement(&mut self) -> IfStatement {
+        self.consume().unwrap();
+        let left = self.parse_expr();
+        if left.is_none() {
+            eprintln!("error");
+            std::process::exit(1);
+        }
+        match self.current().kind {
+            TokenKind::DoubleEquals => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `==`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        let right = self.parse_expr();
+        if right.is_none() {
+            eprintln!("error");
+            std::process::exit(1);
+        }
+        match self.current().kind {
+            TokenKind::OpenParen => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `{{`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        let mut statements: Vec<Box<Statement>> = vec![];
+        while let Some(stmt) = self.parse_statement() {
+            statements.push(Box::new(stmt));
+            if self.current().kind == TokenKind::CloseParen {
+                break;
+            }
+        }
+        match self.current().kind {
+            TokenKind::CloseParen => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `}}`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        IfStatement {
+            left: left.unwrap(),
+            right: right.unwrap(),
+            body: statements.clone(),
+            stmt_count: statements.len(),
+        }
+    }
+
     fn parse_syscall(&mut self) -> CallExpression {
         // syscall
         self.consume();
         let mut args = vec![];
-        for i in 0..7 {
+        for _ in 0..7 {
             args.push(match self.current().kind {
                 TokenKind::Number(num) => Box::new(Expression::number(num)),
                 TokenKind::Eof => break,
@@ -240,6 +302,17 @@ impl Parser {
             TokenKind::Let => Declaration {
                 kind: DeclarationKind::VariableDeclaration(self.parse_var_declaration()),
             },
+            TokenKind::Identifier => {
+                if self.peek(1).kind == TokenKind::Equals {
+                    Declaration {
+                        kind: DeclarationKind::VariableRedeclaration(
+                            self.parse_variable_redleclaration(),
+                        ),
+                    }
+                } else {
+                    todo!();
+                }
+            }
             _ => todo!(),
         };
     }
@@ -273,6 +346,18 @@ impl Parser {
             name: name.to_string(),
             value: value.clone(),
         }
+    }
+
+    fn parse_variable_redleclaration(&mut self) -> VariableDeclaration {
+        let a = self.consume().unwrap();
+        let name = match a.kind {
+            TokenKind::Identifier => a.span.literal.clone(),
+            _ => todo!(),
+        }
+        .to_string();
+        self.consume();
+        let value = self.parse_expr().unwrap();
+        return VariableDeclaration { name, value };
     }
 
     fn parse_binary_expr(&mut self) -> BinaryExpression {

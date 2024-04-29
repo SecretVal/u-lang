@@ -1,3 +1,4 @@
 #!/usr/bin/env sh
 set -xe
-rm -rf out*
+rm -rf main.asm main
+cargo r -- main.ul

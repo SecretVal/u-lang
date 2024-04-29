@@ -28,8 +28,13 @@ pub enum TokenKind {
     Eof,
     Let,
     Equals,
+    DoubleEquals,
     Syscall,
+    OpenParen,
+    CloseParen,
     Comma,
+    If,
+    While,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -89,6 +94,7 @@ impl Lexer {
                 kind = TokenKind::Whitespace;
                 if c == '\n' {
                     self.row += 1;
+                    self.col = 0;
                 }
                 self.consume();
             } else if c.is_alphabetic() {
@@ -98,6 +104,8 @@ impl Lexer {
                 kind = match identifier.as_str() {
                     "let" => TokenKind::Let,
                     "syscall" => TokenKind::Syscall,
+                    "if" => TokenKind::If,
+                    "while" => TokenKind::While,
                     _ => TokenKind::Identifier,
                 }
             } else {
@@ -141,8 +149,18 @@ impl Lexer {
         match c {
             '+' => TokenKind::Plus,
             '-' => TokenKind::Minus,
-            '=' => TokenKind::Equals,
+            '=' => {
+                if let Some(next_c) = self.current_char() {
+                    if next_c == '=' {
+                        self.consume().unwrap();
+                        return TokenKind::DoubleEquals;
+                    }
+                }
+                TokenKind::Equals
+            }
             ',' => TokenKind::Comma,
+            '{' => TokenKind::OpenParen,
+            '}' => TokenKind::CloseParen,
             _ => TokenKind::Bad,
         }
     }
@@ -162,5 +180,8 @@ impl Lexer {
 
     fn current_char(&self) -> Option<char> {
         self.input.chars().nth(self.pos)
+    }
+    fn peek(&self, offset: usize) -> Option<char> {
+        self.input.chars().nth(self.pos + offset)
     }
 }
