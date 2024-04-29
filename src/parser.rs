@@ -51,10 +51,15 @@ pub enum StatementKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {
-    pub(crate) left: Expression,
-    pub(crate) right: Expression,
+    pub(crate) condition: Condition,
     pub(crate) body: Vec<Box<Statement>>,
     pub(crate) stmt_count: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Condition {
+    pub(crate) left: Expression,
+    pub(crate) right: Expression,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -216,27 +221,7 @@ impl Parser {
 
     fn parse_if_statement(&mut self) -> IfStatement {
         self.consume().unwrap();
-        let left = self.parse_expr();
-        if left.is_none() {
-            eprintln!("error");
-            std::process::exit(1);
-        }
-        match self.current().kind {
-            TokenKind::DoubleEquals => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `==`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
-        let right = self.parse_expr();
-        if right.is_none() {
-            eprintln!("error");
-            std::process::exit(1);
-        }
+        let condition = self.parse_condition();
         match self.current().kind {
             TokenKind::OpenParen => self.consume().unwrap(),
             _ => {
@@ -267,8 +252,7 @@ impl Parser {
             }
         };
         IfStatement {
-            left: left.unwrap(),
-            right: right.unwrap(),
+            condition,
             body: statements.clone(),
             stmt_count: statements.len(),
         }
@@ -422,6 +406,34 @@ impl Parser {
         };
         self.consume();
         BinaryExpression { kind, left, right }
+    }
+
+    fn parse_condition(&mut self) -> Condition {
+        let left = self.parse_expr();
+        if left.is_none() {
+            eprintln!("error");
+            std::process::exit(1);
+        }
+        match self.current().kind {
+            TokenKind::DoubleEquals => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `==`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        let right = self.parse_expr();
+        if right.is_none() {
+            eprintln!("error");
+            std::process::exit(1);
+        }
+        Condition {
+            left: left.unwrap(),
+            right: right.unwrap(),
+        }
     }
 
     fn consume(&mut self) -> Option<&Token> {
