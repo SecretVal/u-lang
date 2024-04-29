@@ -29,7 +29,7 @@ impl Statement {
             },
             DeclarationKind::VariableRedeclaration(var_re_decl) => Self {
                 kind: StatementKind::Declaration(Declaration {
-                    kind: DeclarationKind::VariableDeclaration(var_re_decl),
+                    kind: DeclarationKind::VariableRedeclaration(var_re_decl),
                 }),
             },
         }
@@ -69,8 +69,10 @@ pub struct Declaration {
 #[derive(Debug, PartialEq, Clone)]
 pub enum DeclarationKind {
     VariableDeclaration(VariableDeclaration),
-    VariableRedeclaration(VariableDeclaration),
+    VariableRedeclaration(VariableRedeclaration),
 }
+
+type VariableRedeclaration = VariableDeclaration;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclaration {
@@ -332,7 +334,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_redleclaration(&mut self) -> VariableDeclaration {
+    fn parse_variable_redleclaration(&mut self) -> VariableRedeclaration {
         let a = self.consume().unwrap();
         let name = match a.kind {
             TokenKind::Identifier => a.span.literal.clone(),
