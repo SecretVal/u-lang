@@ -26,7 +26,7 @@ Here's an example:
 ```
 let a = 2
 ```
-To reasign a variable to this: 
+To reassign a variable to this: 
 ```
 a = 2 - 1
 ```
@@ -36,3 +36,18 @@ let a = 2
 let b = a
 ```
 This will result in an error.
+### If Statements
+I don't want to explain this so here's an example:
+```
+if 1 == 2 - 1 {
+    syscall 60, 1
+}
+```
+### Syscalls
+Syscalls are currently the only built in functions. It would be possible to create nearly any function with syscalls.
+To call a syscall you do this: 
+```
+syscall 60, 1
+```
+The first argument is the syscall number. All the following arguments are just the arguments for the syscall. If you don't provide an argument it is going to be 0.
+You can only use numbers as arguments (Soon you will be able to use variables).

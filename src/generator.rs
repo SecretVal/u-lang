@@ -1,5 +1,6 @@
 #![allow(dead_code, non_snake_case)]
 use crate::parser::BinaryExpressionKind;
+use crate::parser::Condition;
 use crate::parser::DeclarationKind;
 use crate::parser::Expression;
 use crate::parser::ExpressionKind;
@@ -56,7 +57,6 @@ impl Generator {
             self.output
                 .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
         }
-        println!("{:?}", self.variables);
         self.output.clone()
     }
 
@@ -65,7 +65,6 @@ impl Generator {
             StatementKind::Expression(expr) => self.generate_expression(expr),
             StatementKind::Declaration(decl) => match decl.kind {
                 DeclarationKind::VariableDeclaration(var_decl) => {
-                    println!("decl");
                     self.variables
                         .insert(var_decl.clone().name, var_decl.clone());
                     self.generate_expression(var_decl.clone().value);
@@ -73,7 +72,6 @@ impl Generator {
                     self.add_to_output("xor rdi, rdi");
                 }
                 DeclarationKind::VariableRedeclaration(var_decl) => {
-                    println!("re");
                     if !self.variables.contains_key(&var_decl.name) {
                         panic!("variable not found");
                     }
@@ -84,10 +82,7 @@ impl Generator {
             },
             StatementKind::IfStatement(if_stmt) => {
                 self.add_to_output(";; -- if --- ;;");
-                self.generate_expression(if_stmt.condition.left);
-                self.add_to_output("mov rdx, rdi");
-                self.generate_expression(if_stmt.condition.right);
-                self.add_to_output("cmp rdi, rdx");
+                self.generate_condition(if_stmt.condition);
                 self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str());
                 self.add_to_output("xor rdi, rdi");
                 self.add_to_output("xor rdx, rdx");
@@ -143,6 +138,13 @@ impl Generator {
                 }
             }
         }
+    }
+
+    fn generate_condition(&mut self, c: Condition) {
+        self.generate_expression(c.left);
+        self.add_to_output("mov rdx, rdi");
+        self.generate_expression(c.right);
+        self.add_to_output("cmp rdi, rdx");
     }
 
     fn consume(&mut self) -> Option<Statement> {
