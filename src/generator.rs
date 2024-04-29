@@ -38,7 +38,9 @@ impl Generator {
         let mut current = self.current();
         self.output
             .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
-        while let Some(_) = self.generate_statement(current.unwrap(), true) {
+        while let Some(_) = self.generate_statement(current.unwrap()) {
+            self.consume();
+            self.stmt_pos += 1;
             current = self.current();
             if current.is_none() {
                 self.output
@@ -52,13 +54,13 @@ impl Generator {
                 break;
             }
             self.output
-                .push_str(format!("addr_{}:\n", self.pos).as_str())
+                .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
         }
         println!("{:?}", self.variables);
         self.output.clone()
     }
 
-    fn generate_statement(&mut self, statement: Statement, consume: bool) -> Option<()> {
+    fn generate_statement(&mut self, statement: Statement) -> Option<()> {
         match statement.kind {
             StatementKind::Expression(expr) => self.generate_expression(expr),
             StatementKind::Declaration(decl) => match decl.kind {
@@ -86,24 +88,20 @@ impl Generator {
                 self.add_to_output("mov rdx, rdi");
                 self.generate_expression(if_stmt.condition.right);
                 self.add_to_output("cmp rdi, rdx");
-                self.add_to_output(format!("je addr_{}", self.pos + 1).as_str());
+                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str());
                 self.add_to_output("xor rdi, rdi");
                 self.add_to_output("xor rdx, rdx");
                 self.add_to_output(
-                    format!("jmp addr_{}", self.pos + 1 + if_stmt.stmt_count).as_str(),
+                    format!("jmp addr_{}", self.stmt_pos + 1 + if_stmt.stmt_count).as_str(),
                 );
                 for stmt in if_stmt.body {
                     self.stmt_pos += 1;
                     self.output
                         .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
-                    self.generate_statement(*stmt.clone(), false);
+                    self.generate_statement(*stmt.clone());
                 }
             }
         };
-        if consume {
-            self.consume();
-            self.stmt_pos += 1;
-        }
         Some(())
     }
 
