@@ -137,6 +137,12 @@ impl Generator {
                     self.add_to_output("syscall");
                 }
             }
+            ExpressionKind::Identifier(i) => {
+                if !self.variables.contains_key(&i) {
+                    panic!("variable not found");
+                }
+                self.add_to_output(format!("mov rdi, [{i}]").as_str());
+            }
         }
     }
 
@@ -162,6 +168,7 @@ impl Generator {
         }
         Some(self.statements[self.pos].clone())
     }
+
     fn add_to_output(&mut self, str: &str) {
         self.output.push_str(format!("    {}\n", str).as_str());
     }

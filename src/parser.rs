@@ -35,7 +35,7 @@ impl Statement {
         }
     }
 
-    pub fn if_statemnt(stmt: IfStatement) -> Self {
+    pub fn if_statement(stmt: IfStatement) -> Self {
         Self {
             kind: StatementKind::IfStatement(stmt),
         }
@@ -101,6 +101,12 @@ impl Expression {
             kind: ExpressionKind::CallExpression(expr),
         }
     }
+
+    pub fn string(str: String) -> Self {
+        Self {
+            kind: ExpressionKind::Identifier(str),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -108,6 +114,7 @@ pub enum ExpressionKind {
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
     CallExpression(CallExpression),
+    Identifier(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -155,8 +162,18 @@ impl Parser {
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.current().kind {
             TokenKind::Let => return Some(Statement::declaration(self.parse_declaration())),
-            TokenKind::Identifier => return Some(Statement::declaration(self.parse_declaration())),
-            TokenKind::If => return Some(Statement::if_statemnt(self.parse_if_statement())),
+            TokenKind::Identifier => {
+                if self.peek(1).kind == TokenKind::Equals {
+                    return Some(Statement::declaration(self.parse_declaration()));
+                } else {
+                    let expr = self.parse_expr();
+                    if expr.is_none() {
+                        return None;
+                    }
+                    return Some(Statement::expression(expr.unwrap()));
+                }
+            }
+            TokenKind::If => return Some(Statement::if_statement(self.parse_if_statement())),
             _ => {
                 let expr = self.parse_expr();
                 if expr.is_none() {
@@ -168,7 +185,8 @@ impl Parser {
     }
 
     pub fn parse_expr(&mut self) -> Option<Expression> {
-        let token = self.current();
+        let binding = self.clone();
+        let token = binding.current();
         return match token.kind {
             TokenKind::Syscall => Some(Expression::call(self.parse_syscall())),
             TokenKind::Number(num) => {
@@ -177,6 +195,10 @@ impl Parser {
                 }
                 self.consume().unwrap();
                 Some(Expression::number(num))
+            }
+            TokenKind::Identifier => {
+                self.consume().unwrap();
+                return Some(Expression::string(token.span.literal.clone()));
             }
             TokenKind::Plus => {
                 eprintln!(
@@ -288,17 +310,9 @@ impl Parser {
             TokenKind::Let => Declaration {
                 kind: DeclarationKind::VariableDeclaration(self.parse_var_declaration()),
             },
-            TokenKind::Identifier => {
-                if self.peek(1).kind == TokenKind::Equals {
-                    Declaration {
-                        kind: DeclarationKind::VariableRedeclaration(
-                            self.parse_variable_redleclaration(),
-                        ),
-                    }
-                } else {
-                    todo!();
-                }
-            }
+            TokenKind::Identifier => Declaration {
+                kind: DeclarationKind::VariableRedeclaration(self.parse_variable_redleclaration()),
+            },
             _ => todo!(),
         };
     }
@@ -454,6 +468,7 @@ impl Parser {
         }
         &self.tokens[index]
     }
+
     fn current(&self) -> &Token {
         &self.peek(0)
     }
