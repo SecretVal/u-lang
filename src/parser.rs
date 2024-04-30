@@ -76,6 +76,15 @@ pub struct WhileStatement {
 pub struct Condition {
     pub(crate) left: Expression,
     pub(crate) right: Expression,
+    pub(crate) operator: Operator,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Operator {
+    Equals,
+    NotEquals,
+    GreaterThan,
+    LessThan,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -93,7 +102,15 @@ type VariableRedeclaration = VariableDeclaration;
 #[derive(Debug, PartialEq, Clone)]
 pub struct VariableDeclaration {
     pub(crate) name: String,
+    pub(crate) kind: EqualKind,
     pub(crate) value: Expression,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum EqualKind {
+    Equals,
+    MinusEquals,
+    PlusEquals,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -181,7 +198,10 @@ impl Parser {
         match self.current().kind {
             TokenKind::Let => return Some(Statement::declaration(self.parse_declaration())),
             TokenKind::Identifier => {
-                if self.peek(1).kind == TokenKind::Equals {
+                if self.peek(1).kind == TokenKind::Equals
+                    || self.peek(1).kind == TokenKind::PlusEquals
+                    || self.peek(1).kind == TokenKind::MinusEquals
+                {
                     return Some(Statement::declaration(self.parse_declaration()));
                 } else {
                     let expr = self.parse_expr(true);
@@ -402,26 +422,54 @@ impl Parser {
         // identifier
         self.consume().unwrap();
         // =
-        self.consume().unwrap();
+        let kind = match self.consume().unwrap().kind {
+            TokenKind::Equals => EqualKind::Equals,
+            _ => {
+                let current = self.current();
+                eprintln!(
+                    "Error: {}:{}: `{}` is not a valid EqualKind name for variable declaration",
+                    self.file,
+                    current.loc(),
+                    current.span.literal
+                );
+                std::process::exit(1);
+            }
+        };
         // expression
         let value = self.clone().parse_expr(true).unwrap();
         self.parse_expr(true);
         VariableDeclaration {
             name: name.to_string(),
+            kind,
             value: value.clone(),
         }
     }
 
     fn parse_variable_redleclaration(&mut self) -> VariableRedeclaration {
-        let a = self.consume().unwrap();
-        let name = match a.kind {
-            TokenKind::Identifier => a.span.literal.clone(),
+        let t = self.current();
+        let name = match t.kind {
+            TokenKind::Identifier => t.span.literal.clone(),
             _ => todo!(),
         }
         .to_string();
         self.consume();
+        let kind = match self.consume().unwrap().kind {
+            TokenKind::Equals => EqualKind::Equals,
+            TokenKind::PlusEquals => EqualKind::PlusEquals,
+            TokenKind::MinusEquals => EqualKind::MinusEquals,
+            _ => {
+                let current = self.current();
+                eprintln!(
+                    "Error: {}:{}: `{}` is not a valid EqualKind name",
+                    self.file,
+                    current.loc(),
+                    current.span.literal
+                );
+                std::process::exit(1);
+            }
+        };
         let value = self.parse_expr(true).unwrap();
-        return VariableDeclaration { name, value };
+        return VariableDeclaration { name, kind, value };
     }
 
     fn parse_binary_expr(&mut self) -> BinaryExpression {
@@ -457,17 +505,21 @@ impl Parser {
             eprintln!("error");
             std::process::exit(1);
         }
-        match self.current().kind {
-            TokenKind::DoubleEquals => self.consume().unwrap(),
+        let operator = match self.current().kind {
+            TokenKind::DoubleEquals => Operator::Equals,
+            TokenKind::NotEquals => Operator::NotEquals,
+            TokenKind::LessThan => Operator::LessThan,
+            TokenKind::GreaterThan => Operator::GreaterThan,
             _ => {
                 eprintln!(
-                    "Error: {}:{}: Expected `==`",
+                    "Error: {}:{}: Expected operator",
                     self.file,
                     self.current().loc()
                 );
                 std::process::exit(1);
             }
         };
+        self.consume().unwrap();
         let right = self.parse_expr(true);
         if right.is_none() {
             eprintln!("error");
@@ -475,6 +527,7 @@ impl Parser {
         }
         Condition {
             left: left.unwrap(),
+            operator,
             right: right.unwrap(),
         }
     }

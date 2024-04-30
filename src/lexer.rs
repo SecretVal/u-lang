@@ -28,7 +28,12 @@ pub enum TokenKind {
     Eof,
     Let,
     Equals,
+    NotEquals,
     DoubleEquals,
+    LessThan,
+    GreaterThan,
+    PlusEquals,
+    MinusEquals,
     Syscall,
     OpenParen,
     CloseParen,
@@ -147,8 +152,24 @@ impl Lexer {
     fn consume_punctuation(&mut self) -> TokenKind {
         let c = self.consume().unwrap();
         match c {
-            '+' => TokenKind::Plus,
-            '-' => TokenKind::Minus,
+            '+' => {
+                if let Some(next_c) = self.current_char() {
+                    if next_c == '=' {
+                        self.consume().unwrap();
+                        return TokenKind::PlusEquals;
+                    }
+                }
+                TokenKind::Plus
+            }
+            '-' => {
+                if let Some(next_c) = self.current_char() {
+                    if next_c == '=' {
+                        self.consume().unwrap();
+                        return TokenKind::MinusEquals;
+                    }
+                }
+                TokenKind::Minus
+            }
             '=' => {
                 if let Some(next_c) = self.current_char() {
                     if next_c == '=' {
@@ -161,6 +182,20 @@ impl Lexer {
             ',' => TokenKind::Comma,
             '{' => TokenKind::OpenParen,
             '}' => TokenKind::CloseParen,
+            '!' => {
+                if let Some(next_c) = self.current_char() {
+                    if next_c == '=' {
+                        self.consume().unwrap();
+                        return TokenKind::NotEquals;
+                    } else {
+                        return TokenKind::Bad;
+                    }
+                } else {
+                    return TokenKind::Bad;
+                }
+            }
+            '<' => TokenKind::LessThan,
+            '>' => TokenKind::GreaterThan,
             _ => TokenKind::Bad,
         }
     }

@@ -2,8 +2,10 @@
 use crate::parser::BinaryExpressionKind;
 use crate::parser::Condition;
 use crate::parser::DeclarationKind;
+use crate::parser::EqualKind;
 use crate::parser::Expression;
 use crate::parser::ExpressionKind;
+use crate::parser::Operator;
 use crate::parser::Statement;
 use crate::parser::StatementKind;
 use crate::parser::VariableDeclaration;
@@ -76,14 +78,23 @@ impl Generator {
                         panic!("variable not found");
                     }
                     self.generate_expression(var_decl.clone().value);
-                    self.add_to_output(format!("mov [{}], rdi", var_decl.clone().name).as_str());
+                    match var_decl.kind {
+                        EqualKind::Equals => self.add_to_output(
+                            format!("mov [{}], rdi", var_decl.clone().name).as_str(),
+                        ),
+                        EqualKind::MinusEquals => self.add_to_output(
+                            format!("sub [{}], rdi", var_decl.clone().name).as_str(),
+                        ),
+                        EqualKind::PlusEquals => self.add_to_output(
+                            format!("add [{}], rdi", var_decl.clone().name).as_str(),
+                        ),
+                    }
                     self.add_to_output("xor rdi, rdi");
                 }
             },
             StatementKind::IfStatement(if_stmt) => {
                 self.add_to_output(";; -- if --- ;;");
-                self.generate_condition(if_stmt.condition);
-                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str());
+                self.generate_condition(if_stmt.condition.clone());
                 self.add_to_output("xor rdi, rdi");
                 self.add_to_output("xor rdx, rdx");
                 self.add_to_output(
@@ -98,14 +109,13 @@ impl Generator {
             }
             StatementKind::WhileStatement(while_stmt) => {
                 self.add_to_output(";; -- while --- ;;");
-                self.generate_condition(while_stmt.condition);
-                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str());
+                self.generate_condition(while_stmt.condition.clone());
                 self.add_to_output("xor rdi, rdi");
                 self.add_to_output("xor rdx, rdx");
+                let start = self.stmt_pos;
                 self.add_to_output(
                     format!("jmp addr_{}", self.stmt_pos + 1 + while_stmt.stmt_count).as_str(),
                 );
-                let start = self.stmt_pos;
                 for stmt in while_stmt.body {
                     self.stmt_pos += 1;
                     self.output
@@ -171,7 +181,25 @@ impl Generator {
         self.generate_expression(c.left);
         self.add_to_output("mov rdx, rdi");
         self.generate_expression(c.right);
-        self.add_to_output("cmp rdi, rdx");
+        self.add_to_output("cmp rdx, rdi");
+        self.generate_operator(c.operator);
+    }
+
+    fn generate_operator(&mut self, op: Operator) {
+        match op {
+            Operator::Equals => {
+                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str())
+            }
+            Operator::NotEquals => {
+                self.add_to_output(format!("jne addr_{}", self.stmt_pos + 1).as_str())
+            }
+            Operator::GreaterThan => {
+                self.add_to_output(format!("jg addr_{}", self.stmt_pos + 1).as_str())
+            }
+            Operator::LessThan => {
+                self.add_to_output(format!("jl addr_{}", self.stmt_pos + 1).as_str())
+            }
+        }
     }
 
     fn consume(&mut self) -> Option<Statement> {
