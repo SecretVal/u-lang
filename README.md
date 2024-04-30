@@ -30,10 +30,10 @@ To reassign a variable to this:
 ```
 a = 2 - 1
 ```
-Right now you cannot assign a variable to another.
+You can also assign one variable to another.
 ```
 let a = 2
-let b = a
+let b = a + 3
 ```
 This will result in an error.
 ### If Statements
