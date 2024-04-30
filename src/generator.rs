@@ -96,6 +96,24 @@ impl Generator {
                     self.generate_statement(*stmt.clone());
                 }
             }
+            StatementKind::WhileStatement(while_stmt) => {
+                self.add_to_output(";; -- while --- ;;");
+                self.generate_condition(while_stmt.condition);
+                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str());
+                self.add_to_output("xor rdi, rdi");
+                self.add_to_output("xor rdx, rdx");
+                self.add_to_output(
+                    format!("jmp addr_{}", self.stmt_pos + 1 + while_stmt.stmt_count).as_str(),
+                );
+                let start = self.stmt_pos;
+                for stmt in while_stmt.body {
+                    self.stmt_pos += 1;
+                    self.output
+                        .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+                    self.generate_statement(*stmt.clone());
+                }
+                self.add_to_output(format!("jmp addr_{start}").as_str());
+            }
         };
         Some(())
     }
@@ -107,12 +125,18 @@ impl Generator {
             }
             ExpressionKind::BinaryExpression(bexpr) => match bexpr.kind {
                 BinaryExpressionKind::Plus => {
-                    self.add_to_output(format!("mov rdi, {}", bexpr.left).as_str());
-                    self.add_to_output(format!("add rdi, {}", bexpr.right).as_str());
+                    self.generate_expression(*bexpr.left.clone());
+                    self.add_to_output("mov rdx, rdi");
+                    self.generate_expression(*bexpr.right.clone());
+                    self.add_to_output("add rdx, rdi");
+                    self.add_to_output("mov rdi, rdx");
                 }
                 BinaryExpressionKind::Minus => {
-                    self.add_to_output(format!("mov rdi, {}", bexpr.left).as_str());
-                    self.add_to_output(format!("sub rdi, {}", bexpr.right).as_str());
+                    self.generate_expression(*bexpr.left.clone());
+                    self.add_to_output("mov rdx, rdi");
+                    self.generate_expression(*bexpr.right.clone());
+                    self.add_to_output("sub rdx, rdi");
+                    self.add_to_output("mov rdi, rdx");
                 }
             },
             ExpressionKind::CallExpression(call_expr) => {
@@ -127,11 +151,8 @@ impl Generator {
                         6 => "r9",
                         _ => todo!("a function can only have 6 parameters"),
                     };
-                    let num = match arg.kind {
-                        ExpressionKind::NumberExpression(num) => num,
-                        _ => 0,
-                    };
-                    self.add_to_output(format!("mov {reg}, {num}").as_str());
+                    self.generate_expression(*arg.clone());
+                    self.add_to_output(format!("mov {reg}, rdi").as_str());
                 }
                 if call_expr.name == "syscall".to_string() {
                     self.add_to_output("syscall");

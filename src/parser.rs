@@ -2,12 +2,14 @@
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::lexer::TokenKind;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parser {
     pub(crate) tokens: Vec<Token>,
     pub(crate) pos: usize,
     pub(crate) file: String,
 }
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statement {
     pub(crate) kind: StatementKind,
@@ -40,6 +42,12 @@ impl Statement {
             kind: StatementKind::IfStatement(stmt),
         }
     }
+
+    fn while_statement(stmt: WhileStatement) -> Self {
+        Self {
+            kind: StatementKind::WhileStatement(stmt),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -47,10 +55,18 @@ pub enum StatementKind {
     Expression(Expression),
     Declaration(Declaration),
     IfStatement(IfStatement),
+    WhileStatement(WhileStatement),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {
+    pub(crate) condition: Condition,
+    pub(crate) body: Vec<Box<Statement>>,
+    pub(crate) stmt_count: usize,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct WhileStatement {
     pub(crate) condition: Condition,
     pub(crate) body: Vec<Box<Statement>>,
     pub(crate) stmt_count: usize,
@@ -91,6 +107,7 @@ impl Expression {
             kind: ExpressionKind::NumberExpression(n),
         }
     }
+
     pub fn binary(expr: BinaryExpression) -> Self {
         Self {
             kind: ExpressionKind::BinaryExpression(expr),
@@ -120,8 +137,8 @@ pub enum ExpressionKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpression {
     pub(crate) kind: BinaryExpressionKind,
-    pub(crate) left: i64,
-    pub(crate) right: i64,
+    pub(crate) left: Box<Expression>,
+    pub(crate) right: Box<Expression>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -129,6 +146,7 @@ pub enum BinaryExpressionKind {
     Plus,
     Minus,
 }
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression {
     pub(crate) name: String,
@@ -166,7 +184,7 @@ impl Parser {
                 if self.peek(1).kind == TokenKind::Equals {
                     return Some(Statement::declaration(self.parse_declaration()));
                 } else {
-                    let expr = self.parse_expr();
+                    let expr = self.parse_expr(true);
                     if expr.is_none() {
                         return None;
                     }
@@ -174,31 +192,43 @@ impl Parser {
                 }
             }
             TokenKind::If => return Some(Statement::if_statement(self.parse_if_statement())),
+            TokenKind::While => {
+                return Some(Statement::while_statement(self.parse_while_statement()))
+            }
             _ => {
-                let expr = self.parse_expr();
+                let expr = self.parse_expr(true);
                 if expr.is_none() {
                     return None;
                 }
-                return Some(Statement::expression(expr.unwrap()));
+                return Some(Statement::expression(expr?));
             }
         }
     }
 
-    pub fn parse_expr(&mut self) -> Option<Expression> {
+    pub fn parse_expr(&mut self, look_ahead: bool) -> Option<Expression> {
         let binding = self.clone();
         let token = binding.current();
         return match token.kind {
             TokenKind::Syscall => Some(Expression::call(self.parse_syscall())),
             TokenKind::Number(num) => {
-                if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus {
-                    return Some(Expression::binary(self.parse_binary_expr()));
+                if look_ahead {
+                    if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
+                    {
+                        return Some(Expression::binary(self.parse_binary_expr()));
+                    }
                 }
-                self.consume().unwrap();
+                self.consume()?;
                 Some(Expression::number(num))
             }
             TokenKind::Identifier => {
-                self.consume().unwrap();
-                return Some(Expression::string(token.span.literal.clone()));
+                if look_ahead {
+                    if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
+                    {
+                        return Some(Expression::binary(self.parse_binary_expr()));
+                    }
+                }
+                self.consume()?;
+                Some(Expression::string(token.span.literal.clone()))
             }
             TokenKind::Plus => {
                 eprintln!(
@@ -282,17 +312,51 @@ impl Parser {
         }
     }
 
+    fn parse_while_statement(&mut self) -> WhileStatement {
+        self.consume().unwrap();
+        let condition = self.parse_condition();
+        match self.current().kind {
+            TokenKind::OpenParen => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `{{`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        let mut statements: Vec<Box<Statement>> = vec![];
+        while let Some(stmt) = self.parse_statement() {
+            statements.push(Box::new(stmt));
+            if self.current().kind == TokenKind::CloseParen {
+                break;
+            }
+        }
+        match self.current().kind {
+            TokenKind::CloseParen => self.consume().unwrap(),
+            _ => {
+                eprintln!(
+                    "Error: {}:{}: Expected `}}`",
+                    self.file,
+                    self.current().loc()
+                );
+                std::process::exit(1);
+            }
+        };
+        WhileStatement {
+            condition,
+            body: statements.clone(),
+            stmt_count: statements.len(),
+        }
+    }
+
     fn parse_syscall(&mut self) -> CallExpression {
         // syscall
         self.consume();
         let mut args = vec![];
         for _ in 0..7 {
-            args.push(match self.current().kind {
-                TokenKind::Number(num) => Box::new(Expression::number(num)),
-                TokenKind::Eof => break,
-                _ => Box::new(Expression::number(0)),
-            });
-            self.consume().unwrap();
+            args.push(Box::new(self.parse_expr(false).unwrap()));
             match self.current().kind {
                 TokenKind::Comma => self.consume().unwrap(),
                 TokenKind::Eof => break,
@@ -340,8 +404,8 @@ impl Parser {
         // =
         self.consume().unwrap();
         // expression
-        let value = self.clone().parse_expr().unwrap();
-        self.parse_expr();
+        let value = self.clone().parse_expr(true).unwrap();
+        self.parse_expr(true);
         VariableDeclaration {
             name: name.to_string(),
             value: value.clone(),
@@ -356,34 +420,15 @@ impl Parser {
         }
         .to_string();
         self.consume();
-        let value = self.parse_expr().unwrap();
+        let value = self.parse_expr(true).unwrap();
         return VariableDeclaration { name, value };
     }
 
     fn parse_binary_expr(&mut self) -> BinaryExpression {
-        let left = match self.clone().consume().unwrap().kind {
-            TokenKind::Number(num) => num,
-            _ => {
-                let current = &self.current();
-                println!("{}", current.span.literal.len());
-                if current.span.literal.len() <= 1 {
-                    eprintln!(
-                        "Error: {}:{}: Please provide the first number",
-                        self.file,
-                        current.loc(),
-                    );
-                } else {
-                    eprintln!(
-                        "Error: {}:{}: `{}` is not a number",
-                        self.file,
-                        current.loc(),
-                        current.span.literal
-                    );
-                }
-                std::process::exit(1);
-            }
-        };
-        self.consume();
+        let left = Box::new(match self.parse_expr(false) {
+            Some(expr) => expr,
+            None => panic!("some error"),
+        });
         let kind = match self.clone().consume().unwrap().kind {
             TokenKind::Plus => BinaryExpressionKind::Plus,
             TokenKind::Minus => BinaryExpressionKind::Minus,
@@ -398,34 +443,16 @@ impl Parser {
                 std::process::exit(1);
             }
         };
-        self.consume();
-        let right = match self.clone().consume().unwrap().kind {
-            TokenKind::Number(num) => num,
-            _ => {
-                let current = &self.current();
-                if current.span.literal.len() <= 1 {
-                    eprintln!(
-                        "Error: {}:{}: Please provide a second number",
-                        self.file,
-                        current.loc(),
-                    );
-                } else {
-                    eprintln!(
-                        "Error: {}:{}: `{}` is not a number",
-                        self.file,
-                        current.loc(),
-                        current.span.literal
-                    );
-                }
-                std::process::exit(1);
-            }
-        };
-        self.consume();
+        self.consume().unwrap();
+        let right = Box::new(match self.parse_expr(false) {
+            Some(expr) => expr,
+            None => panic!("some error"),
+        });
         BinaryExpression { kind, left, right }
     }
 
     fn parse_condition(&mut self) -> Condition {
-        let left = self.parse_expr();
+        let left = self.parse_expr(true);
         if left.is_none() {
             eprintln!("error");
             std::process::exit(1);
@@ -441,7 +468,7 @@ impl Parser {
                 std::process::exit(1);
             }
         };
-        let right = self.parse_expr();
+        let right = self.parse_expr(true);
         if right.is_none() {
             eprintln!("error");
             std::process::exit(1);
