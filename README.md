@@ -26,7 +26,7 @@ Here's an example:
 ```
 let a = 2
 ```
-To reassign a variable to this: 
+To reassign a variable do this: 
 ```
 a = 2 - 1
 ```
