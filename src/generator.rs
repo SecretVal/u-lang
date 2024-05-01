@@ -56,7 +56,7 @@ impl Generator {
                     self.atp(format!("{} dq 0", name).as_str());
                 }
                 for (i, str) in self.strings.clone().iter().enumerate() {
-                    self.atp(format!("str_{i} db \"{str}\"",).as_str());
+                    self.atp(format!("str_{i} db \"{str}\", 0Dh, 0Ah, \"$\"").as_str());
                 }
                 break;
             }

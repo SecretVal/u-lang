@@ -3,18 +3,24 @@
 ## wip
 This is a work in progess. Please don't use this for something serious.
 
+## Hello World
+```.
+syscall 1, 1, "hello world", 12
+```
+This will print hello world to the console.
+
 ## Features
 ### Exiting with the last expression
 One feature right now is exiting with the error code of the last statement. This will get changed later when something like exit 1 will be implemented.
 
-Statements can only be of type expression. And an expression can only be either be a NumberExpression or a BinaryExpressoin. BinaryExpression can either be plus or minus and only one.
+Statements can only be of type expression. And an expression can only be either be a NumberExpression, StringLiteral or a BinaryExpressoin. BinaryExpression can either be plus or minus and only one.
 So no:
 ```
 1 + 2 + 3
 ```
 Only:
 ```
-1 + 3
+1 + 3.
 3 + 5
 ```
 The second one would exit with the code: 8.
@@ -51,3 +57,15 @@ syscall 60, 1
 ```
 The first argument is the syscall number. All the following arguments are just the arguments for the syscall. If you don't provide an argument it is going to be 0.
 You can only use numbers as arguments (Soon you will be able to use variables).
+
+#### While Statements
+While statements in u-lang function like while statemens in any other languages: 
+```
+let i = 0
+while i < 100 {
+    syscall 1, 1, "hello", 7
+    i += 1
+}
+```
+This will print hello 100 times.
+Currently there are no for loops.
