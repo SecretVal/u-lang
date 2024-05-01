@@ -19,6 +19,7 @@ fn main() {
     let mut parser = Parser::from_input(&file, args[1].clone());
     let mut statements: Vec<Statement> = vec![];
     while let Some(stmt) = parser.parse_statement() {
+        println!("{stmt:?}");
         statements.push(stmt);
     }
     let mut generator = Generator::new(statements);

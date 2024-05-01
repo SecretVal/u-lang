@@ -42,6 +42,8 @@ pub enum TokenKind {
     Else,
     While,
     DoubleQuotes,
+    Subroutine,
+    Goto,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -114,6 +116,8 @@ impl Lexer {
                     "if" => TokenKind::If,
                     "else" => TokenKind::Else,
                     "while" => TokenKind::While,
+                    "sub" => TokenKind::Subroutine,
+                    "goto" => TokenKind::Goto,
                     _ => TokenKind::Identifier,
                 }
             } else {

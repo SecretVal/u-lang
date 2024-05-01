@@ -8,6 +8,7 @@ use crate::parser::ExpressionKind;
 use crate::parser::Operator;
 use crate::parser::Statement;
 use crate::parser::StatementKind;
+use crate::parser::SubroutineDeclaration;
 
 #[derive(Debug, Clone)]
 pub struct Generator {
@@ -17,6 +18,7 @@ pub struct Generator {
     stmt_pos: usize,
     variables: Vec<String>,
     strings: Vec<String>,
+    subroutines: Vec<SubroutineDeclaration>,
 }
 
 impl Generator {
@@ -28,6 +30,7 @@ impl Generator {
         output.push_str("start:\n");
         let variables = vec![];
         let strings = vec![];
+        let subroutines = vec![];
         Self {
             statements,
             output,
@@ -35,6 +38,7 @@ impl Generator {
             stmt_pos: 0,
             variables,
             strings,
+            subroutines,
         }
     }
 
@@ -51,6 +55,16 @@ impl Generator {
                     .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
                 self.atp("mov rax, 60");
                 self.atp("syscall");
+                for sub in self.subroutines.clone() {
+                    self.output.push_str(format!("{}:\n", sub.name).as_str());
+                    for stmt in sub.body {
+                        self.stmt_pos += 1;
+                        self.output
+                            .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+                        self.generate_statement(stmt);
+                    }
+                    self.atp("ret");
+                }
                 self.output.push_str("segment readable writeable\n");
                 for name in self.variables.clone().into_iter() {
                     self.atp(format!("{} dq 0", name).as_str());
@@ -94,6 +108,9 @@ impl Generator {
                     }
                     self.atp("xor rdi, rdi");
                 }
+                DeclarationKind::SubroutineDeclaration(sub) => {
+                    self.subroutines.push(sub);
+                }
             },
             StatementKind::IfStatement(if_stmt) => {
                 self.atp(";; -- if --- ;;");
@@ -105,7 +122,7 @@ impl Generator {
                     self.stmt_pos += 1;
                     self.output
                         .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
-                    self.generate_statement(*stmt.clone());
+                    self.generate_statement(stmt);
                 }
                 self.atp(
                     format!("jmp addr_{}", self.stmt_pos + 1 + if_stmt.else_stmt_count).as_str(),
@@ -115,7 +132,7 @@ impl Generator {
                         self.stmt_pos += 1;
                         self.output
                             .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
-                        self.generate_statement(*stmt.clone());
+                        self.generate_statement(stmt);
                     }
                 }
             }
@@ -183,6 +200,8 @@ impl Generator {
                 self.atp("pop rdi");
                 if call_expr.name == "syscall".to_string() {
                     self.atp("syscall");
+                } else {
+                    self.atp(format!("call {}", call_expr.name).as_str());
                 }
                 self.atp("xor rdi, rdi");
             }
