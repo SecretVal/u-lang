@@ -8,8 +8,6 @@ use crate::parser::ExpressionKind;
 use crate::parser::Operator;
 use crate::parser::Statement;
 use crate::parser::StatementKind;
-use crate::parser::VariableDeclaration;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Generator {
@@ -17,7 +15,8 @@ pub struct Generator {
     output: String,
     pos: usize,
     stmt_pos: usize,
-    variables: HashMap<String, VariableDeclaration>,
+    variables: Vec<String>,
+    strings: Vec<String>,
 }
 
 impl Generator {
@@ -27,13 +26,15 @@ impl Generator {
         output.push_str("entry start\n");
         output.push_str("segment readable executable\n");
         output.push_str("start:\n");
-        let variables: HashMap<String, VariableDeclaration> = HashMap::new();
+        let variables = vec![];
+        let strings = vec![];
         Self {
             statements,
             output,
             pos: 0,
             stmt_pos: 0,
             variables,
+            strings,
         }
     }
 
@@ -48,11 +49,14 @@ impl Generator {
             if current.is_none() {
                 self.output
                     .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
-                self.add_to_output("mov rax, 60");
-                self.add_to_output("syscall");
+                self.atp("mov rax, 60");
+                self.atp("syscall");
                 self.output.push_str("segment readable writeable\n");
-                for (name, _) in self.variables.clone().into_iter() {
-                    self.add_to_output(format!("{} dq 0", name).as_str());
+                for name in self.variables.clone().into_iter() {
+                    self.atp(format!("{} dq 0", name).as_str());
+                }
+                for (i, str) in self.strings.clone().iter().enumerate() {
+                    self.atp(format!("str_{i} db \"{str}\"",).as_str());
                 }
                 break;
             }
@@ -67,39 +71,36 @@ impl Generator {
             StatementKind::Expression(expr) => self.generate_expression(expr),
             StatementKind::Declaration(decl) => match decl.kind {
                 DeclarationKind::VariableDeclaration(var_decl) => {
-                    self.variables
-                        .insert(var_decl.clone().name, var_decl.clone());
+                    self.variables.push(var_decl.clone().name);
                     self.generate_expression(var_decl.clone().value);
-                    self.add_to_output(format!("mov [{}], rdi", var_decl.clone().name).as_str());
-                    self.add_to_output("xor rdi, rdi");
+                    self.atp(format!("mov [{}], rdi", var_decl.clone().name).as_str());
+                    self.atp("xor rdi, rdi");
                 }
                 DeclarationKind::VariableRedeclaration(var_decl) => {
-                    if !self.variables.contains_key(&var_decl.name) {
+                    if !self.variables.contains(&var_decl.name) {
                         panic!("variable not found");
                     }
                     self.generate_expression(var_decl.clone().value);
                     match var_decl.kind {
-                        EqualKind::Equals => self.add_to_output(
-                            format!("mov [{}], rdi", var_decl.clone().name).as_str(),
-                        ),
-                        EqualKind::MinusEquals => self.add_to_output(
-                            format!("sub [{}], rdi", var_decl.clone().name).as_str(),
-                        ),
-                        EqualKind::PlusEquals => self.add_to_output(
-                            format!("add [{}], rdi", var_decl.clone().name).as_str(),
-                        ),
+                        EqualKind::Equals => {
+                            self.atp(format!("mov [{}], rdi", var_decl.clone().name).as_str())
+                        }
+                        EqualKind::MinusEquals => {
+                            self.atp(format!("sub [{}], rdi", var_decl.clone().name).as_str())
+                        }
+                        EqualKind::PlusEquals => {
+                            self.atp(format!("add [{}], rdi", var_decl.clone().name).as_str())
+                        }
                     }
-                    self.add_to_output("xor rdi, rdi");
+                    self.atp("xor rdi, rdi");
                 }
             },
             StatementKind::IfStatement(if_stmt) => {
-                self.add_to_output(";; -- if --- ;;");
+                self.atp(";; -- if --- ;;");
                 self.generate_condition(if_stmt.condition.clone());
-                self.add_to_output("xor rdi, rdi");
-                self.add_to_output("xor rdx, rdx");
-                self.add_to_output(
-                    format!("jmp addr_{}", self.stmt_pos + 1 + if_stmt.stmt_count).as_str(),
-                );
+                self.atp("xor rdi, rdi");
+                self.atp("xor rdx, rdx");
+                self.atp(format!("jmp addr_{}", self.stmt_pos + 1 + if_stmt.stmt_count).as_str());
                 for stmt in if_stmt.body {
                     self.stmt_pos += 1;
                     self.output
@@ -108,12 +109,12 @@ impl Generator {
                 }
             }
             StatementKind::WhileStatement(while_stmt) => {
-                self.add_to_output(";; -- while --- ;;");
+                self.atp(";; -- while --- ;;");
                 self.generate_condition(while_stmt.condition.clone());
-                self.add_to_output("xor rdi, rdi");
-                self.add_to_output("xor rdx, rdx");
+                self.atp("xor rdi, rdi");
+                self.atp("xor rdx, rdx");
                 let start = self.stmt_pos;
-                self.add_to_output(
+                self.atp(
                     format!("jmp addr_{}", self.stmt_pos + 1 + while_stmt.stmt_count).as_str(),
                 );
                 for stmt in while_stmt.body {
@@ -122,7 +123,7 @@ impl Generator {
                         .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
                     self.generate_statement(*stmt.clone());
                 }
-                self.add_to_output(format!("jmp addr_{start}").as_str());
+                self.atp(format!("jmp addr_{start}").as_str());
             }
         };
         Some(())
@@ -131,22 +132,22 @@ impl Generator {
     fn generate_expression(&mut self, expr: Expression) {
         match expr.kind {
             ExpressionKind::NumberExpression(num) => {
-                self.add_to_output(format!("mov rdi, {}", num).as_str());
+                self.atp(format!("mov rdi, {}", num).as_str());
             }
             ExpressionKind::BinaryExpression(bexpr) => match bexpr.kind {
                 BinaryExpressionKind::Plus => {
                     self.generate_expression(*bexpr.left.clone());
-                    self.add_to_output("mov rdx, rdi");
+                    self.atp("mov rdx, rdi");
                     self.generate_expression(*bexpr.right.clone());
-                    self.add_to_output("add rdx, rdi");
-                    self.add_to_output("mov rdi, rdx");
+                    self.atp("add rdx, rdi");
+                    self.atp("mov rdi, rdx");
                 }
                 BinaryExpressionKind::Minus => {
                     self.generate_expression(*bexpr.left.clone());
-                    self.add_to_output("mov rdx, rdi");
+                    self.atp("mov rdx, rdi");
                     self.generate_expression(*bexpr.right.clone());
-                    self.add_to_output("sub rdx, rdi");
-                    self.add_to_output("mov rdi, rdx");
+                    self.atp("sub rdx, rdi");
+                    self.atp("mov rdi, rdx");
                 }
             },
             ExpressionKind::CallExpression(call_expr) => {
@@ -162,43 +163,45 @@ impl Generator {
                         _ => todo!("a function can only have 6 parameters"),
                     };
                     self.generate_expression(*arg.clone());
-                    self.add_to_output(format!("mov {reg}, rdi").as_str());
+                    if i == 1 {
+                        self.atp("push rdi");
+                        continue;
+                    }
+                    self.atp(format!("mov {reg}, rdi").as_str());
                 }
+                self.atp("pop rdi");
                 if call_expr.name == "syscall".to_string() {
-                    self.add_to_output("syscall");
+                    self.atp("syscall");
                 }
+                self.atp("xor rdi, rdi");
             }
-            ExpressionKind::Identifier(i) => {
-                if !self.variables.contains_key(&i) {
+            ExpressionKind::Variable(var) => {
+                if !self.variables.contains(&var) {
                     panic!("variable not found");
                 }
-                self.add_to_output(format!("mov rdi, [{i}]").as_str());
+                self.atp(format!("mov rdi, [{var}]").as_str());
+            }
+            ExpressionKind::StringLiteral(str) => {
+                self.strings.push(str);
+                self.atp(format!("lea rdi, [str_{}]", self.strings.len() - 1).as_str());
             }
         }
     }
 
     fn generate_condition(&mut self, c: Condition) {
         self.generate_expression(c.left);
-        self.add_to_output("mov rdx, rdi");
+        self.atp("mov rdx, rdi");
         self.generate_expression(c.right);
-        self.add_to_output("cmp rdx, rdi");
+        self.atp("cmp rdx, rdi");
         self.generate_operator(c.operator);
     }
 
     fn generate_operator(&mut self, op: Operator) {
         match op {
-            Operator::Equals => {
-                self.add_to_output(format!("je addr_{}", self.stmt_pos + 1).as_str())
-            }
-            Operator::NotEquals => {
-                self.add_to_output(format!("jne addr_{}", self.stmt_pos + 1).as_str())
-            }
-            Operator::GreaterThan => {
-                self.add_to_output(format!("jg addr_{}", self.stmt_pos + 1).as_str())
-            }
-            Operator::LessThan => {
-                self.add_to_output(format!("jl addr_{}", self.stmt_pos + 1).as_str())
-            }
+            Operator::Equals => self.atp(format!("je addr_{}", self.stmt_pos + 1).as_str()),
+            Operator::NotEquals => self.atp(format!("jne addr_{}", self.stmt_pos + 1).as_str()),
+            Operator::GreaterThan => self.atp(format!("jg addr_{}", self.stmt_pos + 1).as_str()),
+            Operator::LessThan => self.atp(format!("jl addr_{}", self.stmt_pos + 1).as_str()),
         }
     }
 
@@ -218,7 +221,7 @@ impl Generator {
         Some(self.statements[self.pos].clone())
     }
 
-    fn add_to_output(&mut self, str: &str) {
+    fn atp(&mut self, str: &str) {
         self.output.push_str(format!("    {}\n", str).as_str());
     }
 }

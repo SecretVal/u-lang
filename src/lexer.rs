@@ -40,6 +40,7 @@ pub enum TokenKind {
     Comma,
     If,
     While,
+    DoubleQuotes,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -196,6 +197,7 @@ impl Lexer {
             }
             '<' => TokenKind::LessThan,
             '>' => TokenKind::GreaterThan,
+            '"' => TokenKind::DoubleQuotes,
             _ => TokenKind::Bad,
         }
     }

@@ -136,9 +136,14 @@ impl Expression {
         }
     }
 
+    pub fn var(str: String) -> Self {
+        Self {
+            kind: ExpressionKind::Variable(str),
+        }
+    }
     pub fn string(str: String) -> Self {
         Self {
-            kind: ExpressionKind::Identifier(str),
+            kind: ExpressionKind::StringLiteral(str),
         }
     }
 }
@@ -148,7 +153,8 @@ pub enum ExpressionKind {
     NumberExpression(i64),
     BinaryExpression(BinaryExpression),
     CallExpression(CallExpression),
-    Identifier(String),
+    StringLiteral(String),
+    Variable(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -177,10 +183,19 @@ impl Parser {
         while let Some(token) = lexer.next_token() {
             tokens.push(token);
         }
+        let mut inside_string = false;
         Self::new(
             tokens
                 .into_iter()
-                .filter(|t| t.kind != TokenKind::Whitespace)
+                .filter(|t| {
+                    if t.kind == TokenKind::DoubleQuotes {
+                        inside_string = !inside_string;
+                    }
+                    if inside_string {
+                        return true;
+                    }
+                    t.kind != TokenKind::Whitespace
+                })
                 .collect(),
             file,
         )
@@ -248,7 +263,23 @@ impl Parser {
                     }
                 }
                 self.consume()?;
-                Some(Expression::string(token.span.literal.clone()))
+                Some(Expression::var(token.span.literal.clone()))
+            }
+            TokenKind::DoubleQuotes => {
+                let mut str = String::new();
+                // "
+                self.consume().unwrap();
+                loop {
+                    let token = self.current();
+                    if token.kind == TokenKind::DoubleQuotes {
+                        break;
+                    }
+                    str.push_str(&token.span.literal);
+                    self.consume().unwrap();
+                }
+                // "
+                self.consume();
+                Some(Expression::string(str))
             }
             TokenKind::Plus => {
                 eprintln!(
@@ -274,13 +305,9 @@ impl Parser {
                 return None;
             }
             TokenKind::Whitespace => {
-                eprintln!(
-                    "Error: {}:{}: Still a whitespace token in parsing",
-                    self.file,
-                    self.current().loc()
-                );
-                eprintln!("Notice: If you are not the developer please contact create a github issue. This should never happen.");
-                std::process::exit(1);
+                let e = Some(Expression::var(self.current().span.literal.clone()));
+                self.consume().unwrap();
+                e
             }
             _ => {
                 eprintln!(
