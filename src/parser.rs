@@ -63,6 +63,8 @@ pub struct IfStatement {
     pub(crate) condition: Condition,
     pub(crate) body: Vec<Box<Statement>>,
     pub(crate) stmt_count: usize,
+    pub(crate) else_body: Option<Vec<Box<Statement>>>,
+    pub(crate) else_stmt_count: usize,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -352,10 +354,54 @@ impl Parser {
                 std::process::exit(1);
             }
         };
-        IfStatement {
-            condition,
-            body: statements.clone(),
-            stmt_count: statements.len(),
+        let mut else_body: Vec<Box<Statement>> = Vec::new();
+        if self.current().kind == TokenKind::Else {
+            self.consume().unwrap();
+            match self.current().kind {
+                TokenKind::OpenParen => self.consume().unwrap(),
+                _ => {
+                    eprintln!(
+                        "Error: {}:{}: Expected `{{`",
+                        self.file,
+                        self.current().loc()
+                    );
+                    std::process::exit(1);
+                }
+            };
+            while let Some(stmt) = self.parse_statement() {
+                else_body.push(Box::new(stmt));
+                if self.current().kind == TokenKind::CloseParen {
+                    break;
+                }
+            }
+            match self.current().kind {
+                TokenKind::CloseParen => self.consume().unwrap(),
+                _ => {
+                    eprintln!(
+                        "Error: {}:{}: Expected `}}`",
+                        self.file,
+                        self.current().loc()
+                    );
+                    std::process::exit(1);
+                }
+            };
+        }
+        if else_body.len() == 0 {
+            IfStatement {
+                condition,
+                body: statements.clone(),
+                stmt_count: statements.len(),
+                else_body: None,
+                else_stmt_count: 0,
+            }
+        } else {
+            IfStatement {
+                condition,
+                body: statements.clone(),
+                stmt_count: statements.len(),
+                else_body: Some(else_body.clone()),
+                else_stmt_count: else_body.len(),
+            }
         }
     }
 

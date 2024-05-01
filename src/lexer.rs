@@ -39,6 +39,7 @@ pub enum TokenKind {
     CloseParen,
     Comma,
     If,
+    Else,
     While,
     DoubleQuotes,
 }
@@ -111,6 +112,7 @@ impl Lexer {
                     "let" => TokenKind::Let,
                     "syscall" => TokenKind::Syscall,
                     "if" => TokenKind::If,
+                    "else" => TokenKind::Else,
                     "while" => TokenKind::While,
                     _ => TokenKind::Identifier,
                 }

@@ -107,6 +107,17 @@ impl Generator {
                         .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
                     self.generate_statement(*stmt.clone());
                 }
+                self.atp(
+                    format!("jmp addr_{}", self.stmt_pos + 1 + if_stmt.else_stmt_count).as_str(),
+                );
+                if if_stmt.else_body.is_some() {
+                    for stmt in if_stmt.else_body.unwrap() {
+                        self.stmt_pos += 1;
+                        self.output
+                            .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
+                        self.generate_statement(*stmt.clone());
+                    }
+                }
             }
             StatementKind::WhileStatement(while_stmt) => {
                 self.atp(";; -- while --- ;;");
