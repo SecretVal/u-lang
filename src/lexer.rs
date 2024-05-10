@@ -1,6 +1,6 @@
 #![allow(dead_code, non_snake_case)]
 
-use std::fmt::{write, Display};
+use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
@@ -37,47 +37,49 @@ pub enum TokenKind {
     PlusEquals,
     MinusEquals,
     Syscall,
-    OpenSParen,  // {
-    CloseSParen, // }
-    OpenParen,   // (
-    CloseParen,  // )
+    OpenCurly,  // {
+    CloseCurly, // }
+    OpenParen,  // (
+    CloseParen, // )
     Comma,
     If,
     Else,
     While,
     DoubleQuotes,
     Function,
+    DoubleSlash,
 }
 
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            TokenKind::Identifier => "identifier",
-            TokenKind::Number(_) => "number",
-            TokenKind::Plus => "+",
-            TokenKind::Minus => "-",
-            TokenKind::Bad => "Bad",
-            TokenKind::Whitespace => "whitespace",
-            TokenKind::Eof => "Eof",
-            TokenKind::Let => "let",
-            TokenKind::Equals => "=",
-            TokenKind::NotEquals => "!=",
-            TokenKind::DoubleEquals => "==",
-            TokenKind::LessThan => "<",
-            TokenKind::GreaterThan => ">",
-            TokenKind::PlusEquals => "+=",
-            TokenKind::MinusEquals => "-=",
-            TokenKind::Syscall => "syscall",
-            TokenKind::OpenSParen => "{",
-            TokenKind::CloseSParen => "}",
-            TokenKind::OpenParen => "(",
-            TokenKind::CloseParen => ")",
-            TokenKind::Comma => ",",
-            TokenKind::If => "if",
-            TokenKind::Else => "else",
-            TokenKind::While => "while",
-            TokenKind::DoubleQuotes => "\"",
-            TokenKind::Function => "fn",
+            Self::Identifier => "identifier",
+            Self::Number(_) => "number",
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Bad => "Bad",
+            Self::Whitespace => "whitespace",
+            Self::Eof => "Eof",
+            Self::Let => "let",
+            Self::Equals => "=",
+            Self::NotEquals => "!=",
+            Self::DoubleEquals => "==",
+            Self::LessThan => "<",
+            Self::GreaterThan => ">",
+            Self::PlusEquals => "+=",
+            Self::MinusEquals => "-=",
+            Self::Syscall => "syscall",
+            Self::OpenCurly => "{",
+            Self::CloseCurly => "}",
+            Self::OpenParen => "(",
+            Self::CloseParen => ")",
+            Self::Comma => ",",
+            Self::If => "if",
+            Self::Else => "else",
+            Self::While => "while",
+            Self::DoubleQuotes => "\"",
+            Self::Function => "fn",
+            Self::DoubleSlash => "//",
         };
         write!(f, "{str}")
     }
@@ -223,8 +225,8 @@ impl Lexer {
                 TokenKind::Equals
             }
             ',' => TokenKind::Comma,
-            '{' => TokenKind::OpenSParen,
-            '}' => TokenKind::CloseSParen,
+            '{' => TokenKind::OpenCurly,
+            '}' => TokenKind::CloseCurly,
             '(' => TokenKind::OpenParen,
             ')' => TokenKind::CloseParen,
             '!' => {
@@ -242,6 +244,18 @@ impl Lexer {
             '<' => TokenKind::LessThan,
             '>' => TokenKind::GreaterThan,
             '"' => TokenKind::DoubleQuotes,
+            '/' => {
+                if let Some(next_c) = self.current_char() {
+                    if next_c == '/' {
+                        self.consume().unwrap();
+                        return TokenKind::DoubleSlash;
+                    } else {
+                        return TokenKind::Bad;
+                    }
+                } else {
+                    return TokenKind::Bad;
+                }
+            }
             _ => TokenKind::Bad,
         }
     }

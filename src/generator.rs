@@ -197,7 +197,6 @@ impl Generator {
                     }
                     self.atp(format!("mov {reg}, rdi").as_str());
                 }
-                println!("parsing call with {}: {:?}", call_expr.name, call_expr);
                 self.atp("pop rdi");
                 if call_expr.name == "syscall".to_string() {
                     self.atp("syscall");
@@ -216,6 +215,7 @@ impl Generator {
                 self.strings.push(str);
                 self.atp(format!("lea rdi, [str_{}]", self.strings.len() - 1).as_str());
             }
+            ExpressionKind::Comment(_) => {}
         }
     }
 

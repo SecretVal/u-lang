@@ -160,6 +160,12 @@ impl Expression {
             kind: ExpressionKind::StringLiteral(str),
         }
     }
+
+    pub fn comment(str: String) -> Self {
+        Self {
+            kind: ExpressionKind::Comment(str),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -169,6 +175,7 @@ pub enum ExpressionKind {
     CallExpression(CallExpression),
     StringLiteral(String),
     Variable(String),
+    Comment(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -198,6 +205,7 @@ impl Parser {
             tokens.push(token);
         }
         let mut inside_string = false;
+        let mut inside_comment = false;
         Self::new(
             tokens
                 .into_iter()
@@ -205,8 +213,17 @@ impl Parser {
                     if t.kind == TokenKind::DoubleQuotes {
                         inside_string = !inside_string;
                     }
+                    if t.kind == TokenKind::DoubleSlash {
+                        inside_comment = !inside_comment;
+                    }
+                    if t.span.literal == "\n".to_string() && inside_comment {
+                        inside_comment = false;
+                    }
                     if inside_string {
                         return true;
+                    }
+                    if inside_comment {
+                        return false;
                     }
                     t.kind != TokenKind::Whitespace
                 })
@@ -340,26 +357,26 @@ impl Parser {
     fn parse_if_statement(&mut self) -> IfStatement {
         self.consume().unwrap();
         let condition = self.parse_condition();
-        self.expect(TokenKind::OpenSParen);
+        self.expect(TokenKind::OpenCurly);
         let mut statements: Vec<Statement> = vec![];
         while let Some(stmt) = self.parse_statement() {
             statements.push(stmt);
-            if self.current().kind == TokenKind::CloseSParen {
+            if self.current().kind == TokenKind::CloseCurly {
                 break;
             }
         }
-        self.expect(TokenKind::CloseSParen);
+        self.expect(TokenKind::CloseCurly);
         let mut else_body: Vec<Statement> = Vec::new();
         if self.current().kind == TokenKind::Else {
             self.consume().unwrap();
-            self.expect(TokenKind::OpenSParen);
+            self.expect(TokenKind::OpenCurly);
             while let Some(stmt) = self.parse_statement() {
                 else_body.push(stmt);
-                if self.current().kind == TokenKind::CloseSParen {
+                if self.current().kind == TokenKind::CloseCurly {
                     break;
                 }
             }
-            self.expect(TokenKind::CloseSParen);
+            self.expect(TokenKind::CloseCurly);
         }
         if else_body.len() == 0 {
             IfStatement {
@@ -383,15 +400,15 @@ impl Parser {
     fn parse_while_statement(&mut self) -> WhileStatement {
         self.consume().unwrap();
         let condition = self.parse_condition();
-        self.expect(TokenKind::OpenSParen);
+        self.expect(TokenKind::OpenCurly);
         let mut statements: Vec<Box<Statement>> = vec![];
         while let Some(stmt) = self.parse_statement() {
             statements.push(Box::new(stmt));
-            if self.current().kind == TokenKind::CloseSParen {
+            if self.current().kind == TokenKind::CloseCurly {
                 break;
             }
         }
-        self.expect(TokenKind::CloseSParen);
+        self.expect(TokenKind::CloseCurly);
         WhileStatement {
             condition,
             body: statements.clone(),
@@ -459,15 +476,15 @@ impl Parser {
         let name = self.expect(TokenKind::Identifier).span.literal;
         self.expect(TokenKind::OpenParen);
         self.expect(TokenKind::CloseParen);
-        self.expect(TokenKind::OpenSParen);
+        self.expect(TokenKind::OpenCurly);
         let mut body: Vec<Statement> = vec![];
         while let Some(stmt) = self.parse_statement() {
             body.push(stmt);
-            if self.current().kind == TokenKind::CloseSParen {
+            if self.current().kind == TokenKind::CloseCurly {
                 break;
             }
         }
-        self.expect(TokenKind::CloseSParen);
+        self.expect(TokenKind::CloseCurly);
         FunctionDeclaration { name, body }
     }
 
@@ -634,4 +651,24 @@ impl Parser {
         }
         self.consume().unwrap().clone()
     }
+
+    // TODO: uncomment when needed
+    // fn expect_tokens(&mut self, tokens: Vec<TokenKind>, name: String) -> Token {
+    //     let mut seen = false;
+    //     for t in tokens {
+    //         if self.current().kind == t {
+    //             seen = true;
+    //             break;
+    //         }
+    //     }
+    //     if !seen {
+    //         eprintln!(
+    //             "Error: {}:{}: Expected {name}",
+    //             self.file,
+    //             self.current().loc()
+    //         );
+    //         std::process::exit(1);
+    //     }
+    //     self.consume().unwrap().clone()
+    // }
 }
