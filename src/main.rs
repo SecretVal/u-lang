@@ -11,7 +11,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.clone().len() < 2 {
         println!("Usage:");
-        println!("<file-name>    Compile the file");
+        println!("    {} <file-name>    Compile the file", args[0]);
         eprintln!("ERROR: Did not provide file name");
         process::exit(1);
     }
