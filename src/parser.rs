@@ -34,9 +34,9 @@ impl Statement {
                     kind: DeclarationKind::VariableRedeclaration(var_re_decl),
                 }),
             },
-            DeclarationKind::SubroutineDeclaration(sub) => Self {
+            DeclarationKind::FunctionDeclaration(sub) => Self {
                 kind: StatementKind::Declaration(Declaration {
-                    kind: DeclarationKind::SubroutineDeclaration(sub),
+                    kind: DeclarationKind::FunctionDeclaration(sub),
                 }),
             },
         }
@@ -102,7 +102,7 @@ pub struct Declaration {
 pub enum DeclarationKind {
     VariableDeclaration(VariableDeclaration),
     VariableRedeclaration(VariableRedeclaration),
-    SubroutineDeclaration(SubroutineDeclaration),
+    FunctionDeclaration(FunctionDeclaration),
 }
 
 type VariableRedeclaration = VariableDeclaration;
@@ -122,7 +122,7 @@ pub enum EqualKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct SubroutineDeclaration {
+pub struct FunctionDeclaration {
     pub(crate) name: String,
     pub(crate) body: Vec<Statement>,
 }
@@ -226,7 +226,7 @@ impl Parser {
     pub fn parse_statement(&mut self) -> Option<Statement> {
         match self.current().kind {
             TokenKind::Let => return Some(Statement::declaration(self.parse_declaration())),
-            TokenKind::Subroutine => return Some(Statement::declaration(self.parse_declaration())),
+            TokenKind::Function => return Some(Statement::declaration(self.parse_declaration())),
             TokenKind::Identifier => {
                 if self.peek(1).kind == TokenKind::Equals
                     || self.peek(1).kind == TokenKind::PlusEquals
@@ -258,7 +258,6 @@ impl Parser {
         let token = binding.current();
         return match token.kind {
             TokenKind::Syscall => Some(Expression::call(self.parse_syscall())),
-            TokenKind::Goto => Some(Expression::call(self.parse_call())),
             TokenKind::Number(num) => {
                 if look_ahead {
                     if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
@@ -274,6 +273,9 @@ impl Parser {
                     if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
                     {
                         return Some(Expression::binary(self.parse_binary_expr()));
+                    }
+                    if self.peek(1).kind == TokenKind::OpenParen {
+                        return Some(Expression::call(self.parse_call()));
                     }
                 }
                 self.consume()?;
@@ -327,8 +329,9 @@ impl Parser {
                 eprintln!(
                     "Error: {}:{}: Trying to parse this as an Expression",
                     self.file,
-                    self.current().loc()
+                    self.current().loc(),
                 );
+                eprintln!("{:?}", self.current());
                 std::process::exit(1);
             }
         };
@@ -337,66 +340,26 @@ impl Parser {
     fn parse_if_statement(&mut self) -> IfStatement {
         self.consume().unwrap();
         let condition = self.parse_condition();
-        match self.current().kind {
-            TokenKind::OpenParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `{{`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
+        self.expect(TokenKind::OpenSParen);
         let mut statements: Vec<Statement> = vec![];
         while let Some(stmt) = self.parse_statement() {
             statements.push(stmt);
-            if self.current().kind == TokenKind::CloseParen {
+            if self.current().kind == TokenKind::CloseSParen {
                 break;
             }
         }
-        match self.current().kind {
-            TokenKind::CloseParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `}}`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
+        self.expect(TokenKind::CloseSParen);
         let mut else_body: Vec<Statement> = Vec::new();
         if self.current().kind == TokenKind::Else {
             self.consume().unwrap();
-            match self.current().kind {
-                TokenKind::OpenParen => self.consume().unwrap(),
-                _ => {
-                    eprintln!(
-                        "Error: {}:{}: Expected `{{`",
-                        self.file,
-                        self.current().loc()
-                    );
-                    std::process::exit(1);
-                }
-            };
+            self.expect(TokenKind::OpenSParen);
             while let Some(stmt) = self.parse_statement() {
                 else_body.push(stmt);
-                if self.current().kind == TokenKind::CloseParen {
+                if self.current().kind == TokenKind::CloseSParen {
                     break;
                 }
             }
-            match self.current().kind {
-                TokenKind::CloseParen => self.consume().unwrap(),
-                _ => {
-                    eprintln!(
-                        "Error: {}:{}: Expected `}}`",
-                        self.file,
-                        self.current().loc()
-                    );
-                    std::process::exit(1);
-                }
-            };
+            self.expect(TokenKind::CloseSParen);
         }
         if else_body.len() == 0 {
             IfStatement {
@@ -420,35 +383,15 @@ impl Parser {
     fn parse_while_statement(&mut self) -> WhileStatement {
         self.consume().unwrap();
         let condition = self.parse_condition();
-        match self.current().kind {
-            TokenKind::OpenParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `{{`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
+        self.expect(TokenKind::OpenSParen);
         let mut statements: Vec<Box<Statement>> = vec![];
         while let Some(stmt) = self.parse_statement() {
             statements.push(Box::new(stmt));
-            if self.current().kind == TokenKind::CloseParen {
+            if self.current().kind == TokenKind::CloseSParen {
                 break;
             }
         }
-        match self.current().kind {
-            TokenKind::CloseParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `}}`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
+        self.expect(TokenKind::CloseSParen);
         WhileStatement {
             condition,
             body: statements.clone(),
@@ -457,9 +400,10 @@ impl Parser {
     }
 
     fn parse_syscall(&mut self) -> CallExpression {
-        // syscall
-        self.consume();
+        self.expect(TokenKind::Syscall);
+        self.expect(TokenKind::OpenParen);
         let args = self.parse_args();
+        self.expect(TokenKind::CloseParen);
         CallExpression {
             name: "syscall".to_string(),
             args,
@@ -467,15 +411,15 @@ impl Parser {
     }
 
     fn parse_call(&mut self) -> CallExpression {
-        // goto
-        self.consume().unwrap();
         let name = match self.current().kind {
             TokenKind::Identifier => self.current().span.literal.clone(),
             _ => todo!(),
         };
         self.consume().unwrap();
-        let args = self.parse_args();
-        CallExpression { name, args }
+        self.consume().unwrap();
+        self.consume().unwrap();
+        // let args = self.parse_args();
+        CallExpression { name, args: vec![] }
     }
 
     fn parse_args(&mut self) -> Vec<Box<Expression>> {
@@ -503,50 +447,28 @@ impl Parser {
             TokenKind::Identifier => Declaration {
                 kind: DeclarationKind::VariableRedeclaration(self.parse_variable_redleclaration()),
             },
-            TokenKind::Subroutine => Declaration {
-                kind: DeclarationKind::SubroutineDeclaration(self.parse_subroutine_declaration()),
+            TokenKind::Function => Declaration {
+                kind: DeclarationKind::FunctionDeclaration(self.parse_function_declaration()),
             },
             _ => todo!(),
         };
     }
 
-    fn parse_subroutine_declaration(&mut self) -> SubroutineDeclaration {
-        self.consume().unwrap();
-        let name = match self.current().kind {
-            TokenKind::Identifier => self.current().span.literal.clone(),
-            _ => todo!(),
-        };
-        self.consume().unwrap();
-        match self.current().kind {
-            TokenKind::OpenParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `{{`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
+    fn parse_function_declaration(&mut self) -> FunctionDeclaration {
+        self.expect(TokenKind::Function);
+        let name = self.expect(TokenKind::Identifier).span.literal;
+        self.expect(TokenKind::OpenParen);
+        self.expect(TokenKind::CloseParen);
+        self.expect(TokenKind::OpenSParen);
         let mut body: Vec<Statement> = vec![];
         while let Some(stmt) = self.parse_statement() {
             body.push(stmt);
-            if self.current().kind == TokenKind::CloseParen {
+            if self.current().kind == TokenKind::CloseSParen {
                 break;
             }
         }
-        match self.current().kind {
-            TokenKind::CloseParen => self.consume().unwrap(),
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Expected `}}`",
-                    self.file,
-                    self.current().loc()
-                );
-                std::process::exit(1);
-            }
-        };
-        SubroutineDeclaration { name, body }
+        self.expect(TokenKind::CloseSParen);
+        FunctionDeclaration { name, body }
     }
 
     fn parse_var_declaration(&mut self) -> VariableDeclaration {
@@ -699,5 +621,17 @@ impl Parser {
 
     fn current(&self) -> &Token {
         &self.peek(0)
+    }
+
+    fn expect(&mut self, t: TokenKind) -> Token {
+        if self.current().kind != t {
+            eprintln!(
+                "Error: {}:{}: Expected `{t}`",
+                self.file,
+                self.current().loc()
+            );
+            std::process::exit(1);
+        }
+        self.consume().unwrap().clone()
     }
 }

@@ -5,10 +5,10 @@ use crate::parser::DeclarationKind;
 use crate::parser::EqualKind;
 use crate::parser::Expression;
 use crate::parser::ExpressionKind;
+use crate::parser::FunctionDeclaration;
 use crate::parser::Operator;
 use crate::parser::Statement;
 use crate::parser::StatementKind;
-use crate::parser::SubroutineDeclaration;
 
 #[derive(Debug, Clone)]
 pub struct Generator {
@@ -18,7 +18,7 @@ pub struct Generator {
     stmt_pos: usize,
     variables: Vec<String>,
     strings: Vec<String>,
-    subroutines: Vec<SubroutineDeclaration>,
+    subroutines: Vec<FunctionDeclaration>,
 }
 
 impl Generator {
@@ -108,7 +108,7 @@ impl Generator {
                     }
                     self.atp("xor rdi, rdi");
                 }
-                DeclarationKind::SubroutineDeclaration(sub) => {
+                DeclarationKind::FunctionDeclaration(sub) => {
                     self.subroutines.push(sub);
                 }
             },
@@ -197,6 +197,7 @@ impl Generator {
                     }
                     self.atp(format!("mov {reg}, rdi").as_str());
                 }
+                println!("parsing call with {}: {:?}", call_expr.name, call_expr);
                 self.atp("pop rdi");
                 if call_expr.name == "syscall".to_string() {
                     self.atp("syscall");

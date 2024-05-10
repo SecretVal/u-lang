@@ -1,5 +1,7 @@
 #![allow(dead_code, non_snake_case)]
 
+use std::fmt::{write, Display};
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub(crate) kind: TokenKind,
@@ -35,15 +37,50 @@ pub enum TokenKind {
     PlusEquals,
     MinusEquals,
     Syscall,
-    OpenParen,
-    CloseParen,
+    OpenSParen,  // {
+    CloseSParen, // }
+    OpenParen,   // (
+    CloseParen,  // )
     Comma,
     If,
     Else,
     While,
     DoubleQuotes,
-    Subroutine,
-    Goto,
+    Function,
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            TokenKind::Identifier => "identifier",
+            TokenKind::Number(_) => "number",
+            TokenKind::Plus => "+",
+            TokenKind::Minus => "-",
+            TokenKind::Bad => "Bad",
+            TokenKind::Whitespace => "whitespace",
+            TokenKind::Eof => "Eof",
+            TokenKind::Let => "let",
+            TokenKind::Equals => "=",
+            TokenKind::NotEquals => "!=",
+            TokenKind::DoubleEquals => "==",
+            TokenKind::LessThan => "<",
+            TokenKind::GreaterThan => ">",
+            TokenKind::PlusEquals => "+=",
+            TokenKind::MinusEquals => "-=",
+            TokenKind::Syscall => "syscall",
+            TokenKind::OpenSParen => "{",
+            TokenKind::CloseSParen => "}",
+            TokenKind::OpenParen => "(",
+            TokenKind::CloseParen => ")",
+            TokenKind::Comma => ",",
+            TokenKind::If => "if",
+            TokenKind::Else => "else",
+            TokenKind::While => "while",
+            TokenKind::DoubleQuotes => "\"",
+            TokenKind::Function => "fn",
+        };
+        write!(f, "{str}")
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -116,8 +153,7 @@ impl Lexer {
                     "if" => TokenKind::If,
                     "else" => TokenKind::Else,
                     "while" => TokenKind::While,
-                    "sub" => TokenKind::Subroutine,
-                    "goto" => TokenKind::Goto,
+                    "fn" => TokenKind::Function,
                     _ => TokenKind::Identifier,
                 }
             } else {
@@ -187,8 +223,10 @@ impl Lexer {
                 TokenKind::Equals
             }
             ',' => TokenKind::Comma,
-            '{' => TokenKind::OpenParen,
-            '}' => TokenKind::CloseParen,
+            '{' => TokenKind::OpenSParen,
+            '}' => TokenKind::CloseSParen,
+            '(' => TokenKind::OpenParen,
+            ')' => TokenKind::CloseParen,
             '!' => {
                 if let Some(next_c) = self.current_char() {
                     if next_c == '=' {
