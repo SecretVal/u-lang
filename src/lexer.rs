@@ -41,6 +41,7 @@ pub enum TokenKind {
     CloseCurly, // }
     OpenParen,  // (
     CloseParen, // )
+    Colon, // :
     Comma,
     If,
     Else,
@@ -80,6 +81,7 @@ impl Display for TokenKind {
             Self::DoubleQuotes => "\"",
             Self::Function => "fn",
             Self::DoubleSlash => "//",
+	    Self::Colon => ":",
         };
         write!(f, "{str}")
     }
@@ -158,7 +160,7 @@ impl Lexer {
                     "fn" => TokenKind::Function,
                     _ => TokenKind::Identifier,
                 }
-            } else {
+            } else if c.is_ascii_punctuation() {
                 kind = self.consume_punctuation();
             }
             if kind == TokenKind::Bad {
@@ -170,6 +172,8 @@ impl Lexer {
             Token { kind, span }
         });
     }
+
+
     fn consume_identifier(&mut self) -> String {
         let mut str = String::new();
         while let Some(c) = self.current_char() {
@@ -234,12 +238,9 @@ impl Lexer {
                     if next_c == '=' {
                         self.consume().unwrap();
                         return TokenKind::NotEquals;
-                    } else {
-                        return TokenKind::Bad;
                     }
-                } else {
-                    return TokenKind::Bad;
                 }
+		TokenKind::Identifier
             }
             '<' => TokenKind::LessThan,
             '>' => TokenKind::GreaterThan,
@@ -255,8 +256,9 @@ impl Lexer {
                 } else {
                     return TokenKind::Bad;
                 }
-            }
-            _ => TokenKind::Bad,
+            },
+	    ':' => TokenKind::Colon,
+            _ => TokenKind::Identifier,
         }
     }
 
