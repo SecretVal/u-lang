@@ -279,7 +279,7 @@ impl Parser {
                 if look_ahead {
                     if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
                     {
-                        return Some(Expression::binary(self.parse_binary_expr()));
+                        return Some(Expression::binary(self.parse_binary_expr(None)));
                     }
                 }
                 self.consume()?;
@@ -289,7 +289,7 @@ impl Parser {
                 if look_ahead {
                     if self.peek(1).kind == TokenKind::Plus || self.peek(1).kind == TokenKind::Minus
                     {
-                        return Some(Expression::binary(self.parse_binary_expr()));
+                        return Some(Expression::binary(self.parse_binary_expr(None)));
                     }
                     if self.peek(1).kind == TokenKind::OpenParen {
                         return Some(Expression::call(self.parse_call()));
@@ -314,22 +314,8 @@ impl Parser {
                 self.consume();
                 Some(Expression::string(str))
             }
-            TokenKind::Plus => {
-                eprintln!(
-                    "Error: {}:{}: You cannot start a statement with `+`",
-                    self.file,
-                    self.current().loc(),
-                );
-                std::process::exit(1);
-            }
-            TokenKind::Minus => {
-                eprintln!(
-                    "Error: {}:{}: You cannot start a statement with `-`",
-                    self.file,
-                    self.current().loc(),
-                );
-                std::process::exit(1);
-            }
+            TokenKind::Plus => todo!(),
+            TokenKind::Minus => todo!(),
             TokenKind::Bad => {
                 eprintln!("Error: {}:{}: Bad token", self.file, self.current().loc(),);
                 std::process::exit(1);
@@ -559,12 +545,19 @@ impl Parser {
         return VariableDeclaration { name, kind, value };
     }
 
-    fn parse_binary_expr(&mut self) -> BinaryExpression {
-        let left = Box::new(match self.parse_expr(false) {
-            Some(expr) => expr,
-            None => panic!("some error"),
-        });
-        let kind = match self.clone().consume().unwrap().kind {
+    fn parse_binary_expr(&mut self, l: Option<Box<Expression>>) -> BinaryExpression {
+	let left;
+        if l.is_none() {
+            left = Box::new(match self.parse_expr(false) {
+                Some(expr) => expr,
+                None => {
+                    todo!();
+                }
+            });
+        } else {
+	    left = l.unwrap();
+	}
+	let kind = match self.current().kind {
             TokenKind::Plus => BinaryExpressionKind::Plus,
             TokenKind::Minus => BinaryExpressionKind::Minus,
             _ => {
@@ -583,7 +576,12 @@ impl Parser {
             Some(expr) => expr,
             None => panic!("some error"),
         });
-        BinaryExpression { kind, left, right }
+        let r = BinaryExpression { kind, left, right };
+
+        if self.pos < self.tokens.len() && (self.current().kind == TokenKind::Plus || self.current().kind == TokenKind::Minus) {
+            return self.parse_binary_expr(Some(Box::new(Expression::binary(r))));
+        }
+        r
     }
 
     fn parse_condition(&mut self) -> Condition {

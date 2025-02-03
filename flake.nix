@@ -32,6 +32,7 @@
             inherit version;
             cargoSha256 = "sha256-5eKMXR/s0Ut6TpKUIrg9MbmYTYToPhd8eGNPwEwomI8=";
             pname = name;
+            buildInputs = with pkgs; [fasm];
             src = ./.;
           };
 
