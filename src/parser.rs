@@ -124,6 +124,7 @@ pub enum EqualKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDeclaration {
     pub(crate) name: String,
+    pub(crate) args: Vec<ArgDeclaration>,
     pub(crate) body: Vec<Statement>,
 }
 
@@ -195,6 +196,11 @@ pub enum BinaryExpressionKind {
 pub struct CallExpression {
     pub(crate) name: String,
     pub(crate) args: Vec<Box<Expression>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ArgDeclaration {
+    pub(crate) name: String,
 }
 
 impl Parser {
@@ -291,7 +297,9 @@ impl Parser {
                     {
                         return Some(Expression::binary(self.parse_binary_expr(None)));
                     }
-                    if self.peek(1).kind == TokenKind::OpenParen {
+		    let mut c = self.clone();
+		    c.parse_identifier();
+                    if c.peek(0).kind == TokenKind::OpenParen {
                         return Some(Expression::call(self.parse_call()));
                     }
                 }
@@ -328,15 +336,7 @@ impl Parser {
                 self.consume().unwrap();
                 e
             }
-            _ => {
-                eprintln!(
-                    "Error: {}:{}: Trying to parse this as an Expression",
-                    self.file,
-                    self.current().loc(),
-                );
-                eprintln!("{:?}", self.current());
-                std::process::exit(1);
-            }
+	    _ => None,
         };
     }
 
@@ -414,15 +414,11 @@ impl Parser {
     }
 
     fn parse_call(&mut self) -> CallExpression {
-        let name = match self.current().kind {
-            TokenKind::Identifier => self.current().span.literal.clone(),
-            _ => todo!(),
-        };
-        self.consume().unwrap();
-        self.consume().unwrap();
-        self.consume().unwrap();
-        // let args = self.parse_args();
-        CallExpression { name, args: vec![] }
+        let name = self.parse_identifier();
+	self.expect(TokenKind::OpenParen);
+	let args = self.parse_args();
+	self.expect(TokenKind::CloseParen);
+        CallExpression { name, args }
     }
 
     fn parse_args(&mut self) -> Vec<Box<Expression>> {
@@ -459,8 +455,12 @@ impl Parser {
 
     fn parse_function_declaration(&mut self) -> FunctionDeclaration {
         self.expect(TokenKind::Function);
-        let name = self.expect(TokenKind::Identifier).span.literal;
-        self.expect(TokenKind::OpenParen);
+	let name = self.parse_identifier();
+	self.expect(TokenKind::OpenParen);
+	let mut args: Vec<ArgDeclaration> = Vec::new();
+	while self.current().kind != TokenKind::CloseParen {
+            args.push(self.parse_arg_declaration());
+        }
         self.expect(TokenKind::CloseParen);
         self.expect(TokenKind::OpenCurly);
         let mut body: Vec<Statement> = vec![];
@@ -471,43 +471,24 @@ impl Parser {
             }
         }
         self.expect(TokenKind::CloseCurly);
-        FunctionDeclaration { name, body }
+        FunctionDeclaration { name, body, args }
     }
 
+    fn parse_arg_declaration(&mut self) -> ArgDeclaration {
+        let t = self.expect(TokenKind::Identifier);
+        let name = t.span.literal;
+        ArgDeclaration { name }
+    }
     fn parse_var_declaration(&mut self) -> VariableDeclaration {
         // `let`
         self.consume().unwrap();
         // name
-        let literal = &self.clone().current().span.literal.clone();
-        let name = match self.clone().consume().unwrap().kind {
-            TokenKind::Identifier => literal,
-            _ => {
-                let current = self.current();
-                eprintln!(
-                    "Error: {}:{}: `{}` is not a valid variable name",
-                    self.file,
-                    current.loc(),
-                    current.span.literal
-                );
-                std::process::exit(1);
-            }
-        };
-        // identifier
-        self.consume().unwrap();
+        let name = self.parse_identifier();
         // =
-        let kind = match self.consume().unwrap().kind {
-            TokenKind::Equals => EqualKind::Equals,
-            _ => {
-                let current = self.current();
-                eprintln!(
-                    "Error: {}:{}: `{}` is not a valid EqualKind name for variable declaration",
-                    self.file,
-                    current.loc(),
-                    current.span.literal
-                );
-                std::process::exit(1);
-            }
-        };
+        let kind = match self.expect(TokenKind::Equals).kind {
+	    TokenKind::Equals => EqualKind::Equals,
+	    _ => panic!("Wait wat?")
+	};
         // expression
         let value = self.clone().parse_expr(true).unwrap();
         self.parse_expr(true);
@@ -546,7 +527,7 @@ impl Parser {
     }
 
     fn parse_binary_expr(&mut self, l: Option<Box<Expression>>) -> BinaryExpression {
-	let left;
+        let left;
         if l.is_none() {
             left = Box::new(match self.parse_expr(false) {
                 Some(expr) => expr,
@@ -555,9 +536,9 @@ impl Parser {
                 }
             });
         } else {
-	    left = l.unwrap();
-	}
-	let kind = match self.current().kind {
+            left = l.unwrap();
+        }
+        let kind = match self.current().kind {
             TokenKind::Plus => BinaryExpressionKind::Plus,
             TokenKind::Minus => BinaryExpressionKind::Minus,
             _ => {
@@ -578,7 +559,9 @@ impl Parser {
         });
         let r = BinaryExpression { kind, left, right };
 
-        if self.pos < self.tokens.len() && (self.current().kind == TokenKind::Plus || self.current().kind == TokenKind::Minus) {
+        if self.pos < self.tokens.len()
+            && (self.current().kind == TokenKind::Plus || self.current().kind == TokenKind::Minus)
+        {
             return self.parse_binary_expr(Some(Box::new(Expression::binary(r))));
         }
         r
@@ -615,6 +598,15 @@ impl Parser {
             operator,
             right: right.unwrap(),
         }
+    }
+
+    fn parse_identifier(&mut self) -> String{
+	let mut i = String::new();
+	while self.current().kind == TokenKind::Identifier {
+	    let t = self.consume().unwrap();
+	    i.push_str(&t.span.literal);
+	}
+	i
     }
 
     fn consume(&mut self) -> Option<&Token> {

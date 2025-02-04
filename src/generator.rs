@@ -1,4 +1,5 @@
 #![allow(dead_code, non_snake_case)]
+
 use crate::parser::BinaryExpressionKind;
 use crate::parser::Condition;
 use crate::parser::DeclarationKind;
@@ -57,12 +58,22 @@ impl Generator {
                 self.atp("syscall");
                 for sub in self.subroutines.clone() {
                     self.output.push_str(format!("{}:\n", sub.name).as_str());
+		    let mut a2 = sub.args.clone();
+		    a2.reverse();
+                    for (i, a) in a2.iter().enumerate() {
+                        self.variables.push(a.name.clone());
+			self.atp(&format!("mov rdi, [rsp + {}]", 8 * (i+1)));
+                        self.atp(&format!("mov [{}], rdi", a.name));
+                    }
                     for stmt in sub.body {
                         self.stmt_pos += 1;
                         self.output
                             .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
                         self.generate_statement(stmt);
                     }
+		    self.stmt_pos += 1;
+		    self.output
+                        .push_str(format!("addr_{}:\n", self.stmt_pos).as_str());
                     self.atp("ret");
                 }
                 self.output.push_str("segment readable writeable\n");
@@ -179,35 +190,40 @@ impl Generator {
                 }
             },
             ExpressionKind::CallExpression(call_expr) => {
-                for (i, arg) in call_expr.args.iter().enumerate() {
-                    let reg = match i {
-                        0 => "rax",
-                        1 => "rdi",
-                        2 => "rsi",
-                        3 => "rdx",
-                        4 => "r10",
-                        5 => "r8",
-                        6 => "r9",
-                        _ => todo!("a function can only have 6 parameters"),
-                    };
-                    self.generate_expression(*arg.clone());
-                    if i == 1 {
-                        self.atp("push rdi");
-                        continue;
-                    }
-                    self.atp(format!("mov {reg}, rdi").as_str());
-                }
-                self.atp("pop rdi");
                 if call_expr.name == "syscall".to_string() {
+                    for (i, arg) in call_expr.args.iter().enumerate() {
+                        let reg = match i {
+                            0 => "rax",
+                            1 => "rdi",
+                            2 => "rsi",
+                            3 => "rdx",
+                            4 => "r10",
+                            5 => "r8",
+                            6 => "r9",
+                            _ => todo!("a function can only have 6 parameters"),
+                        };
+                        self.generate_expression(*arg.clone());
+                        if i == 1 {
+                            self.atp("push rdi");
+                            continue;
+                        }
+                        self.atp(format!("mov {reg}, rdi").as_str());
+                    }
+                    self.atp("pop rdi");
                     self.atp("syscall");
                 } else {
-                    self.atp(format!("call {}", call_expr.name).as_str());
+                    for arg in call_expr.args {
+                        self.generate_expression(*arg);
+                        self.atp("push rdi");
+                    }
+                    self.atp(&format!("call {}", call_expr.name));
                 }
+
                 self.atp("xor rdi, rdi");
             }
             ExpressionKind::Variable(var) => {
                 if !self.variables.contains(&var) {
-                    panic!("variable not found");
+                    panic!("variable ({}) not found", var);
                 }
                 self.atp(format!("mov rdi, [{var}]").as_str());
             }
